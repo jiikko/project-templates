@@ -1,0 +1,117 @@
+# SwiftLint Configuration
+
+# 厳格モード: 警告をエラーとして扱う
+strict: true
+
+included:
+  - "{{PROJECT_NAME}}/Sources"
+
+excluded:
+  - DerivedData
+  - .build
+  - Pods
+  - Carthage
+  - Packages
+
+# 無効化するルール
+disabled_rules:
+  - trailing_whitespace
+  - line_length
+  - file_length
+  - type_body_length
+  - function_body_length
+  - cyclomatic_complexity
+  - trailing_comma
+  - nesting
+  - identifier_name
+  - large_tuple
+  - generic_type_name
+  - opening_brace
+  - void_function_in_ternary
+  - blanket_disable_command
+  - todo
+  - multiple_closures_with_trailing_closure
+  - type_name
+  - inclusive_language
+  - function_parameter_count
+  - accessibility_label_for_image
+
+# 有効化するオプトインルール
+opt_in_rules:
+  # パフォーマンス
+  - empty_count
+  - empty_string
+  - first_where
+  - last_where
+  - contains_over_first_not_nil
+  - sorted_first_last
+
+  # バグ防止
+  - identical_operands
+  - redundant_nil_coalescing
+  - yoda_condition
+  - fallthrough
+  - overridden_super_call
+  - return_value_from_void_function
+
+  # コード品質
+  - fatal_error_message
+  - legacy_random
+  - private_over_fileprivate
+  - toggle_bool
+  - modifier_order
+  - unavailable_function
+
+  # SwiftUI
+  - private_swiftui_state
+  - prohibited_interface_builder
+
+  # メモリ管理
+  - weak_delegate
+  - unowned_variable_capture
+  - discarded_notification_center_observer
+
+# エラーとして扱うルール
+force_unwrapping:
+  severity: error
+
+# 識別子の設定
+identifier_name:
+  min_length:
+    warning: 1
+  max_length:
+    warning: 60
+  excluded:
+    - id
+    - x
+    - y
+    - dx
+    - dy
+    - ms
+    - i
+    - j
+
+# カスタムルール
+custom_rules:
+  # @ObservedObjectのインライン初期化を禁止
+  observed_object_initialization:
+    name: "ObservedObject Inline Initialization"
+    regex: '@ObservedObject\s+(private\s+)?var\s+\w+\s*[=:]'
+    message: "@ObservedObjectをインラインで初期化しないでください。親Viewから注入してください。"
+    severity: warning
+
+  # 不安定なView IDを禁止
+  unstable_view_id:
+    name: "Unstable View ID"
+    regex: '\.id\(UUID\(\)\)'
+    message: ".id(UUID())はレンダリングごとにViewを再作成します。安定したIDを使用してください。"
+    severity: error
+
+  # 配列の直接アクセスを禁止
+  array_first_element_direct_access:
+    name: "Array First Element Direct Access"
+    regex: '\[\s*0\s*\]'
+    message: "array[0]の代わりにarray.firstを使用してください。"
+    severity: warning
+    match_kinds:
+      - identifier

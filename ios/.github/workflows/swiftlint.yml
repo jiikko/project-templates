@@ -1,0 +1,23 @@
+name: SwiftLint
+
+on:
+  pull_request:
+    paths:
+      - '**/*.swift'
+      - '.swiftlint.yml'
+      - '.github/workflows/swiftlint.yml'
+
+jobs:
+  swiftlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download SwiftLint
+        run: |
+          curl -L https://github.com/realm/SwiftLint/releases/download/0.57.0/swiftlint_linux.zip -o swiftlint.zip
+          unzip swiftlint.zip
+          chmod +x swiftlint
+
+      - name: Run SwiftLint
+        run: ./swiftlint --config .swiftlint.yml
