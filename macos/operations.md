@@ -121,6 +121,31 @@ make test     # 全テスト
 make lint     # リントのみ
 ```
 
+### E2Eテスト
+
+E2Eテストではアプリ内でローカルWebサーバーを起動し、REST APIやHTTPリクエストをテストする。
+
+**依存ライブラリ例**:
+- [Swifter](https://github.com/httpswift/swifter) - 軽量HTTPサーバー
+
+**パターン**:
+```swift
+// テストのsetUp()でサーバー起動
+let server = HttpServer()
+server["/api/test"] = { request in
+    return .ok(.json(["status": "ok"]))
+}
+try server.start(8080)
+
+// tearDown()で停止
+server.stop()
+```
+
+**注意点**:
+- ポート競合を避けるため、テストごとに異なるポートを使うか、動的にポートを割り当てる
+- サーバー起動/停止はsetUp/tearDownで確実に行う
+- タイムアウト設定を適切に（サーバー起動待ちを考慮）
+
 ### クリーンビルド
 ```bash
 make clean
