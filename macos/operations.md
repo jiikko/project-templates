@@ -3,13 +3,13 @@
 ## バージョン管理
 
 ### バージョニング規則
-- `MARKETING_VERSION` = `CURRENT_PROJECT_VERSION` を常に同期
-- `BASE_VERSION`（例: 1.0）を固定し、パッチ番号のみインクリメント
-- 例: 1.0.1 → 1.0.2 → 1.0.3
+- `MARKETING_VERSION`（公開バージョン）: リリース単位で変更。TestFlightアップロードでは変えない
+- `CURRENT_PROJECT_VERSION`（ビルド番号）: TestFlightにアップロードするたびにインクリメント
+- 例: 公開バージョン `1.0.0` を維持したまま、ビルド番号だけ 68 → 69 → 70 と増やす
 
 ### Gitタグ
-- TestFlightアップロード時: `testflight/X.Y.Z`
-- リリース時: `vX.Y.Z`
+- TestFlightアップロード時: `testflight/{build番号}`
+- リリース時: `v{MARKETING_VERSION}`
 
 ---
 
