@@ -115,3 +115,17 @@ custom_rules:
     severity: warning
     match_kinds:
       - identifier
+
+  # DispatchQueue.main.asyncの使用を警告（async/awaitへの移行推奨）
+  dispatch_queue_main_async:
+    name: "DispatchQueue.main.async Deprecation"
+    regex: 'DispatchQueue\.main\.async'
+    message: "DispatchQueue.main.asyncの代わりにTask { @MainActor in }を使用してください。"
+    severity: warning
+
+  # nonisolated(unsafe)の使用を警告
+  nonisolated_unsafe:
+    name: "Nonisolated Unsafe"
+    regex: 'nonisolated\s*\(\s*unsafe\s*\)'
+    message: "nonisolated(unsafe)はデータ競合リスクがあります。actorまたは適切な同期機構を使用してください。"
+    severity: warning
