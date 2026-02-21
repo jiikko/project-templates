@@ -79,7 +79,7 @@ project-templates/
 
 ### CI/CD
 
-- PR時のSwiftLint検証（ubuntu-latest-slim）
+- PR時のSwiftLint検証（ubuntu-slim）
 
 ## 運用ガイド
 
