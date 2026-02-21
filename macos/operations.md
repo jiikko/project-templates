@@ -51,6 +51,14 @@ issues/
 
 ---
 
+## 新規プロジェクト作成時のチェックリスト
+
+- [ ] `Info.plist` に `ITSAppUsesNonExemptEncryption = false` を追加する
+  - これがないと TestFlight アップロードのたびに輸出コンプライアンスの手動対応が必要になる
+  - iCloud/HTTPS などの標準暗号化のみ使用している場合は `false` でよい
+
+---
+
 ## App Store提出フロー
 
 ### 事前準備
