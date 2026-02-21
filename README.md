@@ -79,12 +79,9 @@ project-templates/
 
 ### CI/CD
 
-- PR時のSwiftLint検証（ubuntu-latest）
+- PR時のSwiftLint検証（ubuntu-latest-slim）
 
 ## 運用ガイド
 
 各プラットフォームの `operations.md` を参照。
 
-## TODO
-
-- [ ] CLAUDE.md テンプレート作成

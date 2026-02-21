@@ -1,0 +1,73 @@
+# CLAUDE.md
+
+## プロジェクト概要
+
+{{PROJECT_DESCRIPTION}}
+
+- iOS {{IOS_VERSION}}+
+- バンドルID: `{{BUNDLE_ID}}`
+- 回答言語: 日本語
+
+## 開発コマンド
+
+```bash
+make setup    # XcodeGenでプロジェクト生成（初回・project.yml変更時に必須）
+make build    # ビルド
+make test     # テスト実行
+make lint     # SwiftLint実行
+make dev      # シミュレータで実行
+make dev-fg   # シミュレータで実行（フォアグラウンド・ログ出力あり）
+make clean    # ビルド成果物のクリーンアップ
+```
+
+特定テストクラスの実行:
+```bash
+xcodebuild test -scheme {{PROJECT_NAME}} \
+  -destination 'platform=iOS Simulator,name=iPhone 16e' \
+  -only-testing:{{PROJECT_NAME}}Tests/YourTestClassName \
+  -skipPackagePluginValidation
+```
+
+## 行動ルール
+
+### IMPORTANT: 必ず守ること
+
+- **ビルドフラグ**: xcodebuildには必ず `-skipPackagePluginValidation` を付ける
+- **コード変更後**: `make lint` → `make build` → `make test` を実行して確認する
+- **project.yml変更後**: `make setup` でプロジェクト再生成する
+
+### やってはいけないこと
+
+- `@StateObject` を新規追加しない → `@Observable` + `@State` を使う
+- `DispatchQueue.main.async` を使わない → `Task { @MainActor in }` を使う
+- `array[0]` を使わない → `.first` を使う
+- `ObservableObject` をインライン初期化しない
+
+### SwiftUI アニメーションルール
+
+- `withAnimation` の completion ブロックで状態変更する場合、`withTransaction` で `disablesAnimations = true` を指定する
+- `.animation(_:value:)` はリーフビューまたは `Group` スコープにのみ配置する
+- UIKit ジェスチャーの Coordinator が `@Binding` を変更する場合、`isAnimating` フラグで排他制御する
+
+## プロジェクト構成
+
+```
+{{PROJECT_NAME}}/Sources/       # メインアプリ
+{{PROJECT_NAME}}Tests/          # ユニットテスト
+```
+
+ビルドシステム: XcodeGen（`project.yml` → .xcodeproj）。出力は `.gitignore` 済み。
+
+## アーキテクチャ概要
+
+{{ARCHITECTURE_DESCRIPTION}}
+
+## 主要エントリーポイント
+
+- `{{PROJECT_NAME}}/Sources/App/` - アプリエントリーポイント・DI設定
+
+## 詳細ドキュメント
+
+| ドキュメント | いつ読むか |
+|---|---|
+| `docs/operations.md` | リリース・TestFlight作業の時 |

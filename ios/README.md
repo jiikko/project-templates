@@ -1,25 +1,12 @@
 # iOSアプリ プロジェクトテンプレート
 
-## macOSテンプレートとの関係
+## macOSテンプレートとの主な差分
 
-**ベース: `macos/`**
-
-macOSアプリテンプレートをベースとしており、運用フローは共通。
-差分は `project.yml` のプラットフォーム設定のみ:
-
-```yaml
-# macos
-platform: macOS
-deploymentTarget:
-  macOS: "14.0"
-
-# ios
-platform: iOS
-deploymentTarget:
-  iOS: "17.0"
-```
-
-今後iOS固有の運用が必要になった場合はこのディレクトリに追加する。
+| ファイル | 差分 |
+|---------|------|
+| `project.yml.template` | platform: iOS、deploymentTarget: iOS 17.0、署名方式（Distribution / MAS） |
+| `Makefile.template` | シミュレータ経由のビルド・起動、ipa出力 |
+| `signing/` | `embedded.mobileprovision` / `ExportOptions.plist` |
 
 ---
 
@@ -40,6 +27,7 @@ deploymentTarget:
 | `{{PROFILE_NAME}}` | プロビジョニングプロファイル名 | `MyApp App Store` |
 | `{{PROFILE_UUID}}` | プロファイルUUID | `d7c282a3-...` |
 | `{{API_KEY_ID}}` | App Store Connect API Key ID | `5RJRDGVG38` |
+| `{{API_ISSUER_ID}}` | App Store Connect API Issuer ID | `69a6de83-...` |
 
 ## 運用ガイド
 
