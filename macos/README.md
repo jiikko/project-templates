@@ -36,6 +36,7 @@
 ├── issues/                # Issue追跡
 │   └── done/
 ├── releases/              # リリースノート
+├── appstore-reviews/      # App Store審査記録
 ├── signing/               # 署名関連
 ├── .github/workflows/     # CI/CD
 ├── project.yml            # XcodeGen設定

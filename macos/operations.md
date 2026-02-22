@@ -117,6 +117,27 @@ make upload-testflight
 2. スクリーンショット・メタデータを更新
 3. 審査に提出
 
+### 審査結果の記録（appstore-reviews/）
+
+審査のたびに結果を記録する。
+
+**承認時:**
+```
+appstore-reviews/YYYY-MM-DD_vX.X.X_approved.md
+```
+
+**却下時:**
+```
+appstore-reviews/YYYY-MM-DD_vX.X.X_rejected.md
+```
+
+記録後、`appstore-reviews/README.md` の履歴テーブルも更新すること。
+
+**却下ファイルに記載する内容:**
+- 却下理由（Guideline番号と本文）
+- 対応内容
+- 再提出日
+
 ---
 
 ## 署名設定（signing/）

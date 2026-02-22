@@ -75,6 +75,7 @@ project-templates/
 | `docs/` | 設計・仕様ドキュメント |
 | `issues/` | Issue追跡（完了分は `done/` へ） |
 | `releases/` | リリースノート管理 |
+| `appstore-reviews/` | App Store審査記録 |
 | `signing/` | 署名関連ファイル |
 
 ### CI/CD
