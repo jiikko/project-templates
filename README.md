@@ -8,7 +8,7 @@ iOS/macOSアプリの共通ディレクトリ構造と運用フローのテン�
 project-templates/
 ├── macos/              # macOSアプリ用テンプレート
 │   ├── README.md
-│   ├── operations.md   # 運用ガイド
+│   ├── README.md       # 使い方・運用ガイド
 │   ├── Makefile.template
 │   ├── project.yml.template
 │   ├── .swiftlint.yml
@@ -84,5 +84,5 @@ project-templates/
 
 ## 運用ガイド
 
-各プラットフォームの `operations.md` を参照。
+各プラットフォームの `README.md` を参照。
 

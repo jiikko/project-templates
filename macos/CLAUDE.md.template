@@ -70,4 +70,4 @@ xcodebuild test -scheme {{PROJECT_NAME}} \
 
 | ドキュメント | いつ読むか |
 |---|---|
-| `docs/operations.md` | リリース・TestFlight作業の時 |
+| `README.md` | リリース・TestFlight作業の時 |
