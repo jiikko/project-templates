@@ -3,12 +3,30 @@
 ## バージョン管理
 
 ### バージョニング規則
-- `MARKETING_VERSION`（公開バージョン）: リリース単位で変更。TestFlightアップロードでは変えない
-- `CURRENT_PROJECT_VERSION`（ビルド番号）: TestFlightにアップロードするたびにインクリメント
-- 例: 公開バージョン `1.0.0` を維持したまま、ビルド番号だけ 68 → 69 → 70 と増やす
+
+| 設定 | 役割 | 形式 | 変更タイミング |
+|------|------|------|------------|
+| `MARKETING_VERSION` | App Store に表示される公開バージョン | `1.0.5` | App Store 新バージョン公開準備時のみ |
+| `CURRENT_PROJECT_VERSION` | ビルド番号（単調増加する整数） | `7` | TestFlight アップロードのたびに +1 |
+
+**運用ポリシー:**
+- **開発中はビルド番号だけを上げる** — `MARKETING_VERSION` は固定のまま、TestFlight に何度でも投げられる
+- **App Store で新バージョンを公開する準備のときだけ `MARKETING_VERSION` を上げる**
+
+```bash
+# TestFlight アップロード時（ビルド番号だけ +1）
+make upload-testflight
+
+# ビルド番号だけ手動で +1
+make bump-build
+```
+
+> **公開バージョン（`MARKETING_VERSION`）は `project.yml` を直接編集して変更する。**
+> コマンドは用意しない。App Store 審査提出の準備時だけ手動で変更すること。
 
 ### Gitタグ
-- TestFlightアップロード時: `testflight/{build番号}`
+- TestFlightアップロード時: `testflight/{MARKETING_VERSION}-{CURRENT_PROJECT_VERSION}`
+  - 例: `testflight/1.0.5-7`（同じ公開バージョンで複数ビルドを区別できる）
 - リリース時: `v{MARKETING_VERSION}`
 
 ---
@@ -61,22 +79,38 @@ issues/
 
 ## App Store提出フロー
 
-### 事前準備
-1. `make bump-build` でバージョン番号をインクリメント
-2. `make test` で全テストがパスすることを確認
-3. `make lint` でリント警告がないことを確認
-4. `releases/unreleased.md` の内容を確認
+### TestFlight アップロード（日常的な開発ビルド）
 
-### TestFlightアップロード
 ```bash
 make upload-testflight
 ```
 
 このコマンドで以下が実行される:
-1. バージョン番号インクリメント
+1. `CURRENT_PROJECT_VERSION`（ビルド番号）のみインクリメント
 2. アーカイブ作成
-3. Gitタグ作成・プッシュ
+3. `testflight/{VERSION}-{BUILD}` タグ作成・プッシュ
 4. App Store Connectへアップロード
+
+`MARKETING_VERSION` は変更されない。同じ公開バージョンのまま何度でも投げられる。
+
+### App Store 新バージョン公開の準備
+
+新しい公開バージョンを審査に出す前に一度だけ実行する:
+
+```bash
+# 1. project.yml の MARKETING_VERSION を手動で編集
+#    例: "1.0.5" -> "1.0.6"
+vi project.yml
+
+# 2. テスト・リントを確認
+make test
+make lint
+
+# 3. releases/unreleased.md の内容を確認・整理
+
+# 4. TestFlight へアップロード（ビルド番号も +1 される）
+make upload-testflight
+```
 
 ### App Store審査提出
 1. App Store Connectでビルドを選択

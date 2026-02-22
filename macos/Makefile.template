@@ -24,8 +24,10 @@ help:
 	@echo "Release:"
 	@echo "  archive-mas    - Create MAS archive"
 	@echo "  install-profile - Install provisioning profile"
-	@echo "  bump-build     - Increment version number"
+	@echo "  bump-build     - Increment build number (CURRENT_PROJECT_VERSION only)"
 	@echo "  upload-testflight - Full TestFlight upload workflow"
+	@echo ""
+	@echo "  Note: To change the public version, edit MARKETING_VERSION in project.yml manually."
 
 setup:
 	xcodegen generate
@@ -81,23 +83,23 @@ archive-mas:
 		-exportOptionsPlist signing/ExportOptions-MAS.plist
 
 bump-build:
-	@CURRENT=$$(grep 'CURRENT_PROJECT_VERSION:' project.yml | head -1 | sed 's/.*: "//;s/"//'); \
-	PATCH=$$(echo $$CURRENT | cut -d. -f3); \
-	NEW_PATCH=$$((PATCH + 1)); \
-	NEW_VERSION="$(BASE_VERSION).$$NEW_PATCH"; \
-	sed -i '' "s/MARKETING_VERSION: \".*\"/MARKETING_VERSION: \"$$NEW_VERSION\"/" project.yml; \
-	sed -i '' "s/CURRENT_PROJECT_VERSION: \".*\"/CURRENT_PROJECT_VERSION: \"$$NEW_VERSION\"/" project.yml; \
-	echo "Version bumped to $$NEW_VERSION"
+	@OLD_BUILD=$$(grep 'CURRENT_PROJECT_VERSION:' project.yml | head -1 | sed 's/.*: "//;s/"//'); \
+	NEW_BUILD=$$((OLD_BUILD + 1)); \
+	sed -i '' "s/CURRENT_PROJECT_VERSION: \".*\"/CURRENT_PROJECT_VERSION: \"$$NEW_BUILD\"/" project.yml; \
+	echo "Build: $$OLD_BUILD -> $$NEW_BUILD"
+
 
 upload-testflight: bump-build archive-mas
 	@VERSION=$$(grep 'MARKETING_VERSION:' project.yml | head -1 | sed 's/.*: "//;s/"//'); \
+	BUILD=$$(grep 'CURRENT_PROJECT_VERSION:' project.yml | head -1 | sed 's/.*: "//;s/"//'); \
+	echo "Version: $$VERSION (Build: $$BUILD)"; \
 	git add project.yml; \
-	git commit -m "Bump version to $$VERSION"; \
-	git tag "testflight/$$VERSION"; \
-	git push origin HEAD --tags; \
+	git commit -m "testflight/$$VERSION (build $$BUILD)"; \
+	git tag "testflight/$$VERSION-$$BUILD"; \
+	git push origin HEAD "testflight/$$VERSION-$$BUILD"; \
 	xcrun altool --upload-app \
 		-f ./build/$(PROJECT_NAME).pkg \
 		-t macos \
 		--apiKey $(API_KEY_ID) \
 		--apiIssuer $(API_ISSUER_ID); \
-	echo "Uploaded $$VERSION to TestFlight"
+	echo "Uploaded $$VERSION (build $$BUILD) to TestFlight"
