@@ -134,7 +134,14 @@ bump-build:
 	echo "Build: $$OLD_BUILD -> $$NEW_BUILD"
 
 
-upload-testflight: bump-build archive
+upload-testflight:
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Error: uncommitted changes exist"; \
+		git status --short; \
+		exit 1; \
+	fi
+	@$(MAKE) bump-build
+	@$(MAKE) archive
 	@VERSION=$$(grep 'MARKETING_VERSION:' project.yml | head -1 | sed 's/.*: "//;s/"//'); \
 	BUILD=$$(grep 'CURRENT_PROJECT_VERSION:' project.yml | head -1 | sed 's/.*: "//;s/"//'); \
 	echo "Version: $$VERSION (Build: $$BUILD)"; \
