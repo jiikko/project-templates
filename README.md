@@ -30,7 +30,7 @@ project-templates/
 
 ## 使い方
 
-### 新規プロジェクト作成時
+### 新規プロジェクト作成時（単一プラットフォーム）
 
 1. 対象プラットフォームのディレクトリをコピー
    ```bash
@@ -50,6 +50,35 @@ project-templates/
    ```bash
    make setup
    ```
+
+### マルチプラットフォームの場合
+
+macOS + iOS など複数プラットフォームを1リポジトリで管理する場合は、プラットフォームごとにディレクトリを掘り、それぞれの中にテンプレートの運用ファイルを配置する。
+
+```
+MyApp/
+├── macOS/
+│   ├── Sources/
+│   ├── Tests/
+│   ├── Resources/
+│   ├── releases/
+│   ├── signing/
+│   ├── appstore-reviews/
+│   ├── issues/
+│   ├── project.yml      # XcodeGen（macOS targets）
+│   └── Makefile
+├── iOS/
+│   ├── Sources/
+│   ├── Tests/
+│   ├── Resources/
+│   ├── releases/
+│   ├── signing/
+│   ├── appstore-reviews/
+│   ├── issues/
+│   ├── project.yml      # XcodeGen（iOS targets）
+│   └── Makefile
+└── Shared/              # 共通コード（Swift Package等）
+```
 
 ## テンプレート内容
 
