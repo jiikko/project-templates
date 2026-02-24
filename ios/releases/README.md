@@ -17,7 +17,7 @@
 ## ワークフロー
 
 1. 開発中の変更は `unreleased.md` に随時記録
-2. リリース時に `vX.Y.md` にリネーム
+2. App Store 公開版のリリース時に `v{MARKETING_VERSION}.md`（例: `v1.0.md`）にリネーム
 3. リリース日とコミットIDを追記
 4. 新しい `unreleased.md` を作成
 

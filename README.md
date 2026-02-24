@@ -18,7 +18,6 @@ project-templates/
 │   └── issues/
 └── ios/                # iOSアプリ用テンプレート
     ├── README.md
-    ├── operations.md   # 運用ガイド
     ├── Makefile.template
     ├── project.yml.template
     ├── .swiftlint.yml
@@ -94,7 +93,7 @@ MyApp/
 | `lint` | SwiftLint 実行 |
 | `clean` | ビルド成果物削除 |
 | `archive-mas` / `archive` | App Store アーカイブ作成 |
-| `bump-build` | バージョン番号インクリメント |
+| `bump-build` | ビルド番号（`CURRENT_PROJECT_VERSION`）インクリメント |
 | `upload-testflight` | TestFlight アップロード |
 
 ### ディレクトリ
@@ -114,4 +113,3 @@ MyApp/
 ## 運用ガイド
 
 各プラットフォームの `README.md` を参照。
-
