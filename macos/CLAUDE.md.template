@@ -32,6 +32,7 @@ xcodebuild test -scheme {{PROJECT_NAME}} \
 
 ### IMPORTANT: 必ず守ること
 
+- **編集前同期**: 編集作業に入る前に必ず `git pull --rebase` を実行して最新状態に同期する
 - **ビルドフラグ**: xcodebuildには必ず `-skipPackagePluginValidation` を付ける
 - **コード変更後**: `make lint` → `make build` → `make test` を実行して確認する
 - **project.yml変更後**: `make setup` でプロジェクト再生成する
