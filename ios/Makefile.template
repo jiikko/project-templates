@@ -11,7 +11,7 @@ DERIVED_DATA = ./tmp/DerivedData
 XCODEGEN_STAMP = .xcodegen-stamp
 APP_PATH = $(DERIVED_DATA)/Build/Products/Debug-iphonesimulator/$(PROJECT_NAME).app
 
-.PHONY: help setup dev dev-fg build test lint clean archive install-profile bump-build upload-testflight
+.PHONY: help setup dev dev-fg build test lint lint-issues clean archive install-profile bump-build upload-testflight
 
 help:
 	@echo "Usage: make [target]"
@@ -97,6 +97,9 @@ lint: setup
 		-destination 'platform=iOS Simulator,name=$(SIMULATOR)' \
 		-skipPackagePluginValidation \
 		build 2>&1 | grep -E "(warning:|error:)" || true
+
+lint-issues:
+	@bin/lint-issues
 
 clean:
 	rm -rf ~/Library/Developer/Xcode/DerivedData/$(PROJECT_NAME)-*

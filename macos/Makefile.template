@@ -7,7 +7,7 @@ PROFILE_UUID = {{PROFILE_UUID}}
 API_KEY_ID = {{API_KEY_ID}}
 API_ISSUER_ID = 69a6de7e-1d0c-47e3-e053-5b8c7c11a4d1
 
-.PHONY: help setup dev dev-fg build test lint clean archive-mas install-profile bump-build upload-testflight
+.PHONY: help setup dev dev-fg build test lint lint-issues clean archive-mas install-profile bump-build upload-testflight
 
 help:
 	@echo "Usage: make [target]"
@@ -62,6 +62,9 @@ lint:
 	xcodebuild -scheme $(SCHEME) \
 		-skipPackagePluginValidation \
 		build 2>&1 | grep -E "(warning:|error:)" || true
+
+lint-issues:
+	@bin/lint-issues
 
 clean:
 	rm -rf ~/Library/Developer/Xcode/DerivedData/$(PROJECT_NAME)-*

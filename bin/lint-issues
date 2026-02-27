@@ -1,0 +1,38 @@
+#!/bin/bash
+# Issue ファイル名の命名規則チェック
+# 番号付きファイルは NNN-{prefix}-description.md 形式が必須
+# 有効プレフィックス: feat-, bug-, refactor-, perf-, ux-
+
+set -euo pipefail
+
+ISSUES_DIR="$(cd "$(dirname "$0")/.." && pwd)/issues"
+VALID_PREFIXES="feat|bug|refactor|perf|ux"
+errors=0
+
+for file in "$ISSUES_DIR"/*.md; do
+  basename="$(basename "$file")"
+
+  # README.md はスキップ
+  [ "$basename" = "README.md" ] && continue
+
+  # 番号なしファイルはスキップ
+  if ! echo "$basename" | grep -qE '^[0-9]+-'; then
+    continue
+  fi
+
+  # 番号付きファイルはプレフィックス必須
+  if ! echo "$basename" | grep -qE "^[0-9]+-($VALID_PREFIXES)-"; then
+    echo "ERROR: $basename — プレフィックスが必要です (${VALID_PREFIXES//|/, })"
+    errors=$((errors + 1))
+  fi
+done
+
+if [ "$errors" -gt 0 ]; then
+  echo ""
+  echo "$errors 件の命名規則違反があります"
+  echo "正しい形式: NNN-{prefix}-description.md"
+  echo "有効なプレフィックス: ${VALID_PREFIXES//|/, }"
+  exit 1
+else
+  echo "OK: すべてのIssueファイルが命名規則に準拠しています"
+fi
