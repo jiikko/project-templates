@@ -17,6 +17,7 @@
 - `NNN-{prefix}-description.md`: 番号 + プレフィックス + 内容（必須形式）
 - `*.md`: 番号なしIssue（タスクリスト、改善提案、ドキュメント）
 - `done/`: 完了したIssue
+- `pending/`: 着手未定・保留中のIssue
 
 ### Lint
 
@@ -31,9 +32,21 @@ issues/
 ├── README.md
 ├── 001-feat-first-feature.md
 ├── 002-bug-some-bug.md
-└── done/
-    └── 001-feat-completed-feature.md
+├── done/
+│   └── 001-feat-completed-feature.md
+└── pending/
+    └── 099-refactor-deferred-topic.md
 ```
+
+## 運用
+
+- `issues/` 直下: 現在追跡中のIssue
+- `issues/done/`: 完了したIssue
+- `issues/pending/`: 着手未定・保留中のIssue
+
+- 新規Issueは原則 `issues/` 直下に作成する
+- 完了したら `issues/done/` に移動する
+- 保留にしたものだけ `issues/pending/` に移動する
 
 ## テンプレート
 
