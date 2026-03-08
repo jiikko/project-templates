@@ -29,7 +29,8 @@ make lint-issues  # 命名規則チェック
 
 ```
 issues/
-├── README.md
+├── README.md          # このファイル（ルール・テンプレート）
+├── INDEX.md           # Issue索引（アプリ固有・要更新）
 ├── 001-feat-first-feature.md
 ├── 002-bug-some-bug.md
 ├── done/
@@ -47,6 +48,17 @@ issues/
 - 新規Issueは原則 `issues/` 直下に作成する
 - 完了したら `issues/done/` に移動する
 - 保留にしたものだけ `issues/pending/` に移動する
+
+## Issue索引
+
+Issue一覧・優先度・ステータスはアプリ固有の `INDEX.md` で管理する。
+
+> **新しいissueを追加・完了・ステータス変更したら `INDEX.md` を必ず更新すること。**
+
+`INDEX.md` には以下を記載する:
+- Open Issues 一覧（番号・タイトル・優先度・状態）
+- Done 一覧
+- 次に使用するissue番号
 
 ## テンプレート
 
@@ -73,3 +85,7 @@ issues/
 - [ ] テスト
 - [ ] レビュー
 ```
+
+---
+
+> このファイルは `project-templates` で統合管理されています。直接変更せず、`project-templates/macos/issues/README.md` を変更してください。
