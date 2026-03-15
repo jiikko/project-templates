@@ -1,0 +1,64 @@
+#!/bin/bash
+set -euo pipefail
+
+# 引数: FOCUS（省略時はデフォルトの差分レビュー観点）
+DEFAULT_FOCUS="God class になっていないか、新しく定義したメソッドに既存コードとの重複はないか、ドメイン的に正しい変更か、長期的にみて技術的負債にならないクリーンな実装か"
+FOCUS="${FOCUS:-$DEFAULT_FOCUS}"
+
+# 1. gh CLI チェック
+if ! command -v gh &>/dev/null; then
+  echo "Error: gh CLI is not installed"
+  exit 1
+fi
+
+# 2. upstream 有無を確認し、未 push コミット数を取得
+if ! git rev-parse --abbrev-ref '@{upstream}' &>/dev/null; then
+  echo "Error: No upstream configured for current branch. Run: git push -u origin $(git branch --show-current)"
+  exit 1
+fi
+AHEAD=$(git rev-list --count @{upstream}..HEAD)
+if [ "$AHEAD" -eq 0 ]; then
+  echo "Error: No unpushed commits to review"
+  exit 1
+fi
+
+# 3. ブランチ作成 & push
+BRANCH="review/$(date +%Y%m%d-%H%M%S)"
+git branch "$BRANCH" HEAD
+git push origin "$BRANCH"
+
+# 4. ラベル確保
+gh label create "review-diff" \
+  --description "Diff review PR (do not merge)" \
+  --color "D4C5F9" 2>/dev/null || true
+
+# 5. コミット一覧を収集
+BASE_BRANCH=$(git rev-parse --abbrev-ref '@{upstream}' | sed 's|origin/||')
+COMMITS=$(git log --oneline @{upstream}..HEAD)
+TITLE="Review: $(git log --oneline -1 | cut -d' ' -f2-)"
+
+# 6. PR 作成
+PR_URL=$(gh pr create \
+  --base "$BASE_BRANCH" \
+  --head "$BRANCH" \
+  --title "$TITLE" \
+  --label "review-diff" \
+  --body "$(cat <<EOF
+## Review-only PR (do not merge)
+
+Codex コードレビュー用。マージ不要。
+
+### Commits ($AHEAD)
+$COMMITS
+EOF
+)")
+
+echo "$PR_URL"
+
+# 7. @codex review コメント投稿
+PR_NUMBER=$(gh pr view "$BRANCH" --json number --jq '.number')
+gh pr comment "$PR_NUMBER" --body "@codex review for $FOCUS"
+
+echo ""
+echo "Done! Codex will review the PR."
+echo "Run 'make review-status' to check progress."

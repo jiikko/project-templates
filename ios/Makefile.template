@@ -11,7 +11,7 @@ DERIVED_DATA = ./tmp/DerivedData
 XCODEGEN_STAMP = .xcodegen-stamp
 APP_PATH = $(DERIVED_DATA)/Build/Products/Debug-iphonesimulator/$(PROJECT_NAME).app
 
-.PHONY: help setup dev dev-fg build test lint lint-issues clean archive install-profile bump-build upload-testflight
+.PHONY: help setup dev dev-fg build test lint lint-issues clean archive install-profile bump-build upload-testflight review review-full review-status review-fetch review-close
 
 help:
 	@echo "Usage: make [target]"
@@ -158,3 +158,24 @@ upload-testflight:
 		--apiKey $(API_KEY_ID) \
 		--apiIssuer $(API_ISSUER_ID); \
 	echo "Uploaded $$VERSION (build $$BUILD) to TestFlight"
+
+# Codex レビュー（差分）
+# 使い方: make review              (未pushコミットの差分レビュー)
+#         make review FOCUS="セキュリティ"
+review:
+	@FOCUS="$(FOCUS)" bin/review
+
+# Codex レビュー（全ファイル）
+# 使い方: make review-full
+#         make review-full FOCUS="コードスメル、重複コード"
+review-full:
+	@bin/review-full $(if $(FOCUS),"$(FOCUS)",)
+
+review-status:
+	@bin/review-status
+
+review-fetch:
+	@bin/review-fetch
+
+review-close:
+	@bin/review-close

@@ -1,0 +1,42 @@
+#!/bin/bash
+set -euo pipefail
+
+# review-diff または review-full PR を取得
+PR_NUMBER=$(gh pr list --label "review-diff" --json number --jq '.[0].number' 2>/dev/null)
+if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+  PR_NUMBER=$(gh pr list --label "review-full" --json number --jq '.[0].number' 2>/dev/null)
+fi
+if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+  echo "No review PR found"
+  exit 1
+fi
+
+mkdir -p tmp
+
+OUTFILE="tmp/review-$(date +%Y%m%d-%H%M%S).md"
+
+{
+  echo "# Codex Review Comments"
+  echo ""
+  echo "PR: #$PR_NUMBER"
+  echo "Date: $(date +%Y-%m-%d)"
+  echo ""
+
+  # PR レビューコメント
+  echo "## Review Comments"
+  echo ""
+  gh api "repos/{owner}/{repo}/pulls/$PR_NUMBER/reviews" \
+    --jq '.[] | "### " + .user.login + " (" + .state + ")\n\n" + (.body // "(no body)") + "\n"'
+
+  # インラインコメント
+  echo ""
+  echo "## Inline Comments"
+  echo ""
+  gh api "repos/{owner}/{repo}/pulls/$PR_NUMBER/comments" \
+    --jq '.[] | "### " + .path + ":" + ((.line // .original_line // 0) | tostring) + "\n\n" + .body + "\n"'
+
+} > "$OUTFILE"
+
+echo "Review comments saved to: $OUTFILE"
+echo ""
+cat "$OUTFILE"

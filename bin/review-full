@@ -1,0 +1,74 @@
+#!/bin/bash
+set -euo pipefail
+
+# 引数: レビュー観点（省略時は設計レビュー）
+DEFAULT_FOCUS="アーキテクチャの妥当性、責務分離、依存方向の正しさ、God class の兆候"
+FOCUS="${1:-$DEFAULT_FOCUS}"
+
+# 1. gh CLI チェック
+if ! command -v gh &>/dev/null; then
+  echo "Error: gh CLI is not installed"
+  exit 1
+fi
+
+# 2. review/base ブランチを確保（リポジトリの初回コミットを使用）
+#    GitHub は共通履歴のないブランチ間の PR を拒否するため、
+#    リポジトリのルートコミットを base にすることで共通履歴を確保する
+if ! git ls-remote --heads origin review/base | grep -q review/base; then
+  echo "Creating review/base from root commit..."
+  ROOT_COMMIT=$(git rev-list --max-parents=0 HEAD | tail -1)
+  git branch review/base "$ROOT_COMMIT"
+  git push origin review/base
+else
+  echo "review/base already exists on remote"
+fi
+
+# 3. レビューブランチ作成 & push
+BRANCH="review/full-$(date +%Y%m%d-%H%M%S)"
+git branch "$BRANCH" HEAD
+git push origin "$BRANCH"
+
+# 4. ラベル確保
+gh label create "review-full" \
+  --description "Full review PR (do not merge)" \
+  --color "C5DEF5" 2>/dev/null || true
+
+# 5. ファイル数を収集
+FILE_COUNT=$(git ls-files | wc -l | tr -d ' ')
+TITLE="Full Review: $(basename "$(git rev-parse --show-toplevel)") ($FILE_COUNT files)"
+
+# 6. PR 作成
+PR_URL=$(gh pr create \
+  --base "review/base" \
+  --head "$BRANCH" \
+  --title "$TITLE" \
+  --label "review-full" \
+  --body "$(cat <<EOF
+## Full Review PR (do not merge)
+
+Codex 全ファイルレビュー用。マージ不要。
+
+- Files: $FILE_COUNT
+- HEAD: $(git rev-parse --short HEAD)
+- Date: $(date +%Y-%m-%d)
+- Focus: $FOCUS
+EOF
+)")
+
+echo "$PR_URL"
+
+# 7. @codex review コメント投稿
+PR_NUMBER=$(gh pr view "$BRANCH" --json number --jq '.number')
+gh pr comment "$PR_NUMBER" --body "@codex review for $FOCUS"
+
+echo ""
+echo "Done! Codex will review the PR."
+echo "Run 'make review-status' to check progress."
+echo ""
+echo "=== 運用メモ ==="
+echo "Codex は1回のレビューで最大3コメントしか返さない。"
+echo "レビュー観点（トピック）は1コメント1つに分けて投稿すること。"
+echo "  例: gh pr comment $PR_NUMBER -b '@codex セキュリティ観点で...'"
+echo "  例: gh pr comment $PR_NUMBER -b '@codex メモリリーク観点で...'"
+echo "Codex からコメントが来たら、コメントに返信して対話する。"
+echo "確認済みのコメントは削除してノイズを減らすと良い。"
