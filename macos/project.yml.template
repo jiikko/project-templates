@@ -7,7 +7,7 @@ options:
 
 settings:
   base:
-    SWIFT_VERSION: "5.9"
+    SWIFT_VERSION: "6.0"
     ARCHS: arm64
     ONLY_ACTIVE_ARCH: NO
 
@@ -66,7 +66,7 @@ targets:
 
 packages:
   SwiftLintPlugins:
-    url: https://github.com/realm/SwiftLint
+    url: https://github.com/SimplyDanny/SwiftLintPlugins
     from: "0.57.0"
 
 schemes:
