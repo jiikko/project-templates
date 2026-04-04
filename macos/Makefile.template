@@ -109,12 +109,12 @@ upload-testflight:
 	git add project.yml; \
 	git commit -m "testflight/$$VERSION (build $$BUILD)"; \
 	git tag "testflight/$$VERSION-$$BUILD"; \
-	git push origin HEAD "testflight/$$VERSION-$$BUILD"; \
 	xcrun altool --upload-app \
 		-f ./build/$(PROJECT_NAME).pkg \
 		-t macos \
 		--apiKey $(API_KEY_ID) \
 		--apiIssuer $(API_ISSUER_ID); \
+	git push origin HEAD "testflight/$$VERSION-$$BUILD"; \
 	echo "Uploaded $$VERSION (build $$BUILD) to TestFlight"
 
 # Codex レビュー（差分）
