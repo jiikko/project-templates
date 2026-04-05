@@ -1,0 +1,22 @@
+#!/bin/bash
+set -euo pipefail
+
+# review-diff または review-full PR を取得
+PR_NUMBER=$(gh pr list --label "review-diff" --json number --jq '.[0].number' 2>/dev/null)
+if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+  PR_NUMBER=$(gh pr list --label "review-full" --json number --jq '.[0].number' 2>/dev/null)
+fi
+if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+  echo "No review PR found"
+  exit 1
+fi
+
+# レビューの状態を確認
+REVIEWS=$(gh api "repos/{owner}/{repo}/pulls/$PR_NUMBER/reviews" \
+  --jq 'length')
+if [ "$REVIEWS" -eq 0 ]; then
+  echo "pending"
+  exit 1
+fi
+
+echo "completed ($REVIEWS reviews)"

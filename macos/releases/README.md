@@ -1,4 +1,16 @@
-# リリースノート管理
+# リリース管理ディレクトリ
+
+このディレクトリはアプリのリリース履歴（changelog）を管理します。
+
+## ファイル構成
+
+```
+releases/
+├── README.md          # このファイル
+├── v1.1.0.md          # 開発中（次回公開予定）
+├── v1.0.3.md          # 過去のリリース履歴
+└── ...
+```
 
 ## バージョニング規則
 
@@ -9,8 +21,10 @@
 
 **開発中は `MARKETING_VERSION` を固定したまま、ビルド番号だけ上げ続ける。**
 新しい公開バージョンを App Store に出す準備をするときだけ `project.yml` の `MARKETING_VERSION` を手動で編集する。
+`MARKETING_VERSION` を上げるときは `CURRENT_PROJECT_VERSION` を `1` にリセットする。
 
 ### タグ形式
+
 - TestFlight: `testflight/{MARKETING_VERSION}-{BUILD}` 例: `testflight/1.0.5-7`
 - App Store リリース: `v{MARKETING_VERSION}` 例: `v1.0.5`
 
@@ -111,3 +125,7 @@ touch releases/v1.0.7.md     # 次バージョンのファイルを作成
 - **簡潔に**: 1行で要点を伝える
 - **行動ベース**: 「○○を追加」「○○を修正」のように動詞で始める
 - **コミットIDを必ず記載**: リリースのトレーサビリティ確保
+
+---
+
+> このファイルは `project-templates` で統合管理されています。直接変更せず、`project-templates/macos/releases/README.md` を変更してください。

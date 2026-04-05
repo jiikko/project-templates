@@ -1,0 +1,22 @@
+#!/bin/bash
+set -euo pipefail
+
+# review-diff PR を検索 & クローズ（review-full は対象外）
+PR_URLS=$(gh pr list --label "review-diff" --json url --jq '.[].url')
+if [ -z "$PR_URLS" ]; then
+  echo "No review PRs to close"
+  exit 0
+fi
+
+for url in $PR_URLS; do
+  echo "Closing: $url"
+  gh pr close "$url" --delete-branch
+done
+
+# 残存 review/* ブランチ削除（review/base は保持）
+LOCAL_BRANCHES=$(git branch --list 'review/*' | grep -v 'review/base' || true)
+if [ -n "$LOCAL_BRANCHES" ]; then
+  echo "$LOCAL_BRANCHES" | xargs git branch -D
+fi
+
+echo "Done! All review PRs closed."

@@ -105,13 +105,22 @@ make bump-build
 issues/
 ├── 001-current-issue.md
 ├── 002-another-issue.md
-└── done/
-    ├── 001-completed-issue.md
-    └── 002-another-completed.md
+├── done/
+│   ├── 001-completed-issue.md
+│   └── 002-another-completed.md
+└── pending/
+    └── 003-deferred-issue.md
 ```
 
-### 完了時
-- 完了したissueは `issues/done/` に移動
+### ディレクトリの意味
+- `issues/` 直下: 現在追跡中の issue
+- `issues/done/`: 完了した issue
+- `issues/pending/`: 着手未定・保留中の issue
+
+### 運用
+- 新規 issue は原則 `issues/` 直下に作成
+- 完了した issue は `issues/done/` に移動
+- 保留にした issue だけ `issues/pending/` に移動
 
 ---
 
