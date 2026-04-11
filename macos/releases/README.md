@@ -6,11 +6,16 @@
 
 ```
 releases/
-├── README.md          # このファイル
-├── v1.1.0.md          # 開発中（次回公開予定）
-├── v1.0.3.md          # 過去のリリース履歴
+├── README.md              # このファイル
+├── v1.1.0.md              # 開発中（次回公開予定）
+├── v1.0.3.md              # 過去のリリース履歴
+├── vX.Y.Z/                # Fastlane 導入済みの場合: メタデータスナップショット
+│   └── metadata/ja/       # そのバージョンでアップロードしたメタデータ
 └── ...
 ```
+
+> **Fastlane 導入済みの場合:** リリースのたびに `make snapshot-release` を実行すると、
+> そのバージョンの App Store メタデータが `releases/vX.Y.Z/metadata/` に自動保存される。
 
 ## バージョニング規則
 
@@ -61,6 +66,13 @@ make bump-marketing V=1.1.0
 ```bash
 make bump-marketing V=1.0.6  # project.yml の MARKETING_VERSION を更新
 ```
+
+> **Fastlane 導入済みの場合:** メタデータを編集・アップロードしてからスナップショットを保存する。
+> ```bash
+> # fastlane/metadata/ を編集したら:
+> make fastlane-metadata    # App Store Connect にアップロード
+> make snapshot-release     # releases/vX.Y.Z/metadata/ にスナップショット保存
+> ```
 
 ### 3. リリース後・次サイクル開始
 
