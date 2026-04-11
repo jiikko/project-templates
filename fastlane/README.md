@@ -6,7 +6,7 @@
 ## 必須ルール
 
 - **API Key 認証のみ使用**（Apple ID / パスワード認証は禁止）
-- `api_key.json` と `*.p8` は **必ず `.gitignore` に追加する**
+- `api_key.json` と `*.p8` は Git で管理する（ポータビリティ重視）
 - `metadata/` と `screenshots/` は Git で管理する
 - lane 名は下記「標準 lane 一覧」に従う（独自名は禁止）
 - `bundle exec` **不使用**（Bundler は導入しない）

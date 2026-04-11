@@ -106,7 +106,7 @@ MyApp/
 ### 必須ルール
 
 - **API Key 認証のみ**（Apple ID / パスワード認証は禁止）
-- `api_key.json` と `*.p8` は **`.gitignore` に必ず追加**
+- `api_key.json` と `*.p8` は Git 管理する（ポータビリティ重視）
 - `metadata/` と `screenshots/` は Git 管理する
 - lane 名は `metadata` / `screenshots` / `upload_metadata` / `upload_build` / `upload_all` / `submit` で統一
 - `bundle exec` **不使用**
