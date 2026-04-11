@@ -11,6 +11,18 @@
 - lane 名は下記「標準 lane 一覧」に従う（独自名は禁止）
 - `bundle exec` **不使用**（Bundler は導入しない）
 
+## Fastlane のインストール
+
+**Homebrew を使うこと**（`gem install` / Bundler は使わない）。
+
+```bash
+brew install fastlane
+```
+
+> `gem install fastlane` は System Ruby との干渉リスクがある。  
+> Bundler（Gemfile 管理）は導入コストが高いため、このプロジェクト群では採用しない。  
+> `bundle exec` なしで直接 `fastlane` を実行する。
+
 ## セットアップ手順
 
 ### 1. テンプレートをコピー
