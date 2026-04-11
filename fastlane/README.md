@@ -3,11 +3,23 @@
 全アプリ共通の Fastlane 標準セットアップ。  
 このディレクトリをプロジェクトルートにコピーして使う。
 
+## ディレクトリ設計
+
+```
+fastlane/metadata/      ← マスターデータ（常に最新。ここを編集してアップロード）
+releases/vX.X.X/metadata/  ← リリース時のスナップショット（履歴）
+```
+
+**運用フロー:**
+1. `fastlane/metadata/` を編集
+2. `make fastlane-metadata` でアップロード
+3. `make snapshot-release` で `releases/vX.X.X/metadata/` にスナップショットを保存
+
 ## 必須ルール
 
 - **API Key 認証のみ使用**（Apple ID / パスワード認証は禁止）
 - `api_key.json` と `*.p8` は Git で管理する（ポータビリティ重視）
-- `metadata/` と `screenshots/` は Git で管理する
+- `fastlane/metadata/` はマスターデータのみ置く（過去バージョンは `releases/` で管理）
 - lane 名は下記「標準 lane 一覧」に従う（独自名は禁止）
 - `bundle exec` **不使用**（Bundler は導入しない）
 
