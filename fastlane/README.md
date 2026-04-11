@@ -86,20 +86,21 @@ fastlane/metadata/en-US/description.txt   # アプリ概要
 fastlane/metadata/en-US/release_notes.txt # リリースノート
 ```
 
-## 標準 lane 一覧
+## 標準コマンド（Makefile ターゲット）
 
-| lane | 内容 |
-|------|------|
-| `metadata` | メタデータのみアップロード（スクショなし） |
-| `screenshots` | スクリーンショットのみアップロード |
-| `upload_metadata` | メタデータ + スクリーンショット |
-| `upload_build` | ビルドのみアップロード（審査提出なし） |
-| `upload_all` | メタデータ + スクショ + ビルド |
-| `submit` | 審査に提出 |
+| ターゲット | 内容 |
+|-----------|------|
+| `asc-metadata` | メタデータのみアップロード（スクショなし） |
+| `asc-screenshots` | スクリーンショットのみアップロード |
+| `asc-upload` | メタデータ + スクリーンショット |
+| `asc-upload-build` | ビルドのみアップロード（審査提出なし） |
+| `asc-upload-all` | メタデータ + スクショ + ビルド |
+| `asc-submit` | 審査に提出 |
+| `snapshot-release` | `fastlane/metadata/` を `releases/vX.X.X/` にコピー |
 
 ```bash
-fastlane mac metadata          # macOS
-fastlane ios metadata          # iOS
+make asc-metadata       # メタデータアップロード
+make snapshot-release   # リリース後にスナップショット保存
 ```
 
 ## ディレクトリ構造

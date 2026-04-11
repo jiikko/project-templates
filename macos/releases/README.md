@@ -70,8 +70,8 @@ make bump-marketing V=1.0.6  # project.yml の MARKETING_VERSION を更新
 > **Fastlane 導入済みの場合:** メタデータを編集・アップロードしてからスナップショットを保存する。
 > ```bash
 > # fastlane/metadata/ を編集したら:
-> make fastlane-metadata    # App Store Connect にアップロード
-> make snapshot-release     # releases/vX.Y.Z/metadata/ にスナップショット保存
+> make asc-metadata         # App Store Connect にアップロード
+> make snapshot-release     # releases/vX.Y.Z/metadata/ にコピー（version は project.yml の MARKETING_VERSION）
 > ```
 
 ### 3. リリース後・次サイクル開始
