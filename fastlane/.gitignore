@@ -1,0 +1,8 @@
+# Fastlane 秘密鍵・API Key（絶対にコミットしない）
+fastlane/api_key.json
+fastlane/*.p8
+fastlane/AuthKey_*.p8
+
+# Fastlane 自動生成ファイル
+fastlane/report.xml
+fastlane/README.md

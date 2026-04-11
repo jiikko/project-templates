@@ -87,6 +87,32 @@ MyApp/
 └── Shared/              # 共通コード（Swift Package等）
 ```
 
+## Fastlane テンプレート
+
+[`fastlane/`](fastlane/) に全アプリ共通の Fastlane 標準セットアップが格納されている。
+
+| ファイル | 用途 |
+|---------|------|
+| `Appfile.template` | Bundle ID・認証情報（プレースホルダー置換用） |
+| `Deliverfile.macos.template` | macOS アプリ向け deliver 設定 |
+| `Deliverfile.ios.template` | iOS アプリ向け deliver 設定 |
+| `Fastfile.macos.template` | macOS アプリ向け lane 定義 |
+| `Fastfile.ios.template` | iOS アプリ向け lane 定義 |
+| `api_key.json.template` | API Key 設定サンプル |
+| `.gitignore` | `api_key.json` / `*.p8` の除外ルール |
+| `metadata/en-US/` | メタデータプレースホルダー |
+| `screenshots/en-US/` | スクリーンショット格納先 |
+
+### 必須ルール
+
+- **API Key 認証のみ**（Apple ID / パスワード認証は禁止）
+- `api_key.json` と `*.p8` は **`.gitignore` に必ず追加**
+- `metadata/` と `screenshots/` は Git 管理する
+- lane 名は `metadata` / `screenshots` / `upload_metadata` / `upload_build` / `upload_all` / `submit` で統一
+- `bundle exec` **不使用**
+
+詳細は [`fastlane/README.md`](fastlane/README.md) を参照。
+
 ## テンプレート内容
 
 ### Makefile

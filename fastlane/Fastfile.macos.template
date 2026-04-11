@@ -1,0 +1,79 @@
+# Fastfile (macOS)
+# https://docs.fastlane.tools/
+#
+# 標準 lane 一覧:
+#   fastlane mac metadata        -- メタデータのみ（スクショなし）
+#   fastlane mac screenshots     -- スクリーンショットのみ
+#   fastlane mac upload_metadata -- メタデータ + スクリーンショット
+#   fastlane mac upload_build    -- ビルドのみ（審査提出なし）
+#   fastlane mac upload_all      -- メタデータ + スクショ + ビルド
+#   fastlane mac submit          -- 審査に提出
+
+default_platform(:mac)
+
+platform :mac do
+  desc "メタデータのみアップロード（スクリーンショットなし）"
+  lane :metadata do
+    deliver(
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      force: true
+    )
+  end
+
+  desc "スクリーンショットのみアップロード"
+  lane :screenshots do
+    deliver(
+      skip_binary_upload: true,
+      skip_metadata: true,
+      overwrite_screenshots: true,
+      force: true
+    )
+  end
+
+  desc "メタデータ + スクリーンショットをアップロード"
+  lane :upload_metadata do
+    deliver(
+      skip_binary_upload: true,
+      force: true
+    )
+  end
+
+  desc "ビルドをアップロード（審査には提出しない）"
+  lane :upload_build do |options|
+    pkg_path = options[:pkg] || ENV["PKG_PATH"] || "../dist/{{APP_NAME}}.pkg"
+
+    deliver(
+      pkg: pkg_path,
+      skip_binary_upload: false,
+      skip_screenshots: true,
+      skip_metadata: true,
+      submit_for_review: false,
+      force: true
+    )
+  end
+
+  desc "全てアップロード（メタデータ + スクショ + ビルド）"
+  lane :upload_all do |options|
+    pkg_path = options[:pkg] || ENV["PKG_PATH"] || "../dist/{{APP_NAME}}.pkg"
+
+    deliver(
+      pkg: pkg_path,
+      skip_binary_upload: false,
+      submit_for_review: false,
+      force: true
+    )
+  end
+
+  desc "審査に提出"
+  lane :submit do
+    deliver(
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_metadata: true,
+      submit_for_review: true,
+      automatic_release: false,
+      force: true
+    )
+  end
+end

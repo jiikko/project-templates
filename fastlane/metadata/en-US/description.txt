@@ -1,0 +1,9 @@
+{{APP_DESCRIPTION}}
+
+---
+
+# サブスクリプションアプリの場合は下記リンクを必ず残すこと (Guideline 3.1.2)
+# 不要な場合はこのブロックごと削除する
+
+Terms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+Privacy Policy: https://{{YOUR_DOMAIN}}/privacy.html

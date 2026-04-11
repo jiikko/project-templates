@@ -1,0 +1,24 @@
+# Deliver 設定 (macOS)
+# https://docs.fastlane.tools/actions/deliver/
+
+# App Store Connect API Key 認証（Apple ID / パスワードは使わない）
+api_key_path "./fastlane/api_key.json"
+
+# メタデータ・スクリーンショットのパス
+metadata_path    "./fastlane/metadata"
+screenshots_path "./fastlane/screenshots"
+
+# スクリーンショットを上書きする
+overwrite_screenshots true
+
+# 審査には自動提出しない
+submit_for_review false
+
+# プラットフォーム（macOS）
+platform "osx"
+
+# 確認プロンプトをスキップ
+force true
+
+# API Key では IAP チェックが動かないため無効化
+run_precheck_before_submit false

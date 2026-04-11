@@ -1,0 +1,79 @@
+# Fastfile (iOS)
+# https://docs.fastlane.tools/
+#
+# 標準 lane 一覧:
+#   fastlane ios metadata        -- メタデータのみ（スクショなし）
+#   fastlane ios screenshots     -- スクリーンショットのみ
+#   fastlane ios upload_metadata -- メタデータ + スクリーンショット
+#   fastlane ios upload_build    -- ビルドのみ（審査提出なし）
+#   fastlane ios upload_all      -- メタデータ + スクショ + ビルド
+#   fastlane ios submit          -- 審査に提出
+
+default_platform(:ios)
+
+platform :ios do
+  desc "メタデータのみアップロード（スクリーンショットなし）"
+  lane :metadata do
+    deliver(
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      force: true
+    )
+  end
+
+  desc "スクリーンショットのみアップロード"
+  lane :screenshots do
+    deliver(
+      skip_binary_upload: true,
+      skip_metadata: true,
+      overwrite_screenshots: true,
+      force: true
+    )
+  end
+
+  desc "メタデータ + スクリーンショットをアップロード"
+  lane :upload_metadata do
+    deliver(
+      skip_binary_upload: true,
+      force: true
+    )
+  end
+
+  desc "ビルドをアップロード（審査には提出しない）"
+  lane :upload_build do |options|
+    ipa_path = options[:ipa] || ENV["IPA_PATH"] || "../build/{{APP_NAME}}.ipa"
+
+    deliver(
+      ipa: ipa_path,
+      skip_binary_upload: false,
+      skip_screenshots: true,
+      skip_metadata: true,
+      submit_for_review: false,
+      force: true
+    )
+  end
+
+  desc "全てアップロード（メタデータ + スクショ + ビルド）"
+  lane :upload_all do |options|
+    ipa_path = options[:ipa] || ENV["IPA_PATH"] || "../build/{{APP_NAME}}.ipa"
+
+    deliver(
+      ipa: ipa_path,
+      skip_binary_upload: false,
+      submit_for_review: false,
+      force: true
+    )
+  end
+
+  desc "審査に提出"
+  lane :submit do
+    deliver(
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_metadata: true,
+      submit_for_review: true,
+      automatic_release: false,
+      force: true
+    )
+  end
+end

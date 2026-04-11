@@ -11,25 +11,33 @@ DERIVED_DATA = ./tmp/DerivedData
 XCODEGEN_STAMP = .xcodegen-stamp
 APP_PATH = $(DERIVED_DATA)/Build/Products/Debug-iphonesimulator/$(PROJECT_NAME).app
 
-.PHONY: help setup dev dev-fg build test lint lint-issues clean archive install-profile bump-build upload-testflight review review-full review-status review-fetch review-close
+.PHONY: help setup dev dev-fg build test lint lint-issues clean archive install-profile bump-build upload-testflight fastlane-metadata fastlane-screenshots fastlane-upload-metadata fastlane-upload-build fastlane-upload-all fastlane-submit review review-full review-status review-fetch review-close
 
 help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Development:"
-	@echo "  setup          - Generate Xcode project from project.yml"
-	@echo "  dev            - Build and run on simulator"
-	@echo "  dev-fg         - Build and run on simulator (foreground with logs)"
-	@echo "  build          - Build Release configuration"
-	@echo "  test           - Run tests"
-	@echo "  lint           - Run SwiftLint"
-	@echo "  clean          - Clean build artifacts"
+	@echo "  setup                   - Generate Xcode project from project.yml"
+	@echo "  dev                     - Build and run on simulator"
+	@echo "  dev-fg                  - Build and run on simulator (foreground with logs)"
+	@echo "  build                   - Build Release configuration"
+	@echo "  test                    - Run tests"
+	@echo "  lint                    - Run SwiftLint"
+	@echo "  clean                   - Clean build artifacts"
 	@echo ""
 	@echo "Release:"
-	@echo "  archive        - Create App Store archive"
-	@echo "  install-profile - Install provisioning profile"
-	@echo "  bump-build     - Increment build number (CURRENT_PROJECT_VERSION only)"
-	@echo "  upload-testflight - Full TestFlight upload workflow"
+	@echo "  archive                 - Create App Store archive"
+	@echo "  install-profile         - Install provisioning profile"
+	@echo "  bump-build              - Increment build number (CURRENT_PROJECT_VERSION only)"
+	@echo "  upload-testflight       - Full TestFlight upload workflow"
+	@echo ""
+	@echo "Fastlane (App Store メタデータ管理):"
+	@echo "  fastlane-metadata       - メタデータのみアップロード（スクショなし）"
+	@echo "  fastlane-screenshots    - スクリーンショットのみアップロード"
+	@echo "  fastlane-upload-metadata - メタデータ + スクリーンショット"
+	@echo "  fastlane-upload-build   - ビルドのみアップロード（審査提出なし）"
+	@echo "  fastlane-upload-all     - メタデータ + スクショ + ビルド"
+	@echo "  fastlane-submit         - 審査に提出"
 	@echo ""
 	@echo "  Note: To change the public version, edit MARKETING_VERSION in project.yml manually."
 
@@ -158,6 +166,24 @@ upload-testflight:
 		--apiKey $(API_KEY_ID) \
 		--apiIssuer $(API_ISSUER_ID); \
 	echo "Uploaded $$VERSION (build $$BUILD) to TestFlight"
+
+fastlane-metadata:
+	fastlane ios metadata
+
+fastlane-screenshots:
+	fastlane ios screenshots
+
+fastlane-upload-metadata:
+	fastlane ios upload_metadata
+
+fastlane-upload-build:
+	fastlane ios upload_build
+
+fastlane-upload-all:
+	fastlane ios upload_all
+
+fastlane-submit:
+	fastlane ios submit
 
 # Codex レビュー（差分）
 # 使い方: make review              (未pushコミットの差分レビュー)

@@ -7,25 +7,33 @@ PROFILE_UUID = {{PROFILE_UUID}}
 API_KEY_ID = {{API_KEY_ID}}
 API_ISSUER_ID = 69a6de7e-1d0c-47e3-e053-5b8c7c11a4d1
 
-.PHONY: help setup dev dev-fg build test lint lint-issues clean archive-mas install-profile bump-build upload-testflight review review-full review-status review-fetch review-close
+.PHONY: help setup dev dev-fg build test lint lint-issues clean archive-mas install-profile bump-build upload-testflight fastlane-metadata fastlane-screenshots fastlane-upload-metadata fastlane-upload-build fastlane-upload-all fastlane-submit review review-full review-status review-fetch review-close
 
 help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Development:"
-	@echo "  setup          - Generate Xcode project from project.yml"
-	@echo "  dev            - Build and run app (background)"
-	@echo "  dev-fg         - Build and run app (foreground with logs)"
-	@echo "  build          - Build Release configuration"
-	@echo "  test           - Run tests"
-	@echo "  lint           - Run SwiftLint"
-	@echo "  clean          - Clean build artifacts"
+	@echo "  setup                   - Generate Xcode project from project.yml"
+	@echo "  dev                     - Build and run app (background)"
+	@echo "  dev-fg                  - Build and run app (foreground with logs)"
+	@echo "  build                   - Build Release configuration"
+	@echo "  test                    - Run tests"
+	@echo "  lint                    - Run SwiftLint"
+	@echo "  clean                   - Clean build artifacts"
 	@echo ""
 	@echo "Release:"
-	@echo "  archive-mas    - Create MAS archive"
-	@echo "  install-profile - Install provisioning profile"
-	@echo "  bump-build     - Increment build number (CURRENT_PROJECT_VERSION only)"
-	@echo "  upload-testflight - Full TestFlight upload workflow"
+	@echo "  archive-mas             - Create MAS archive"
+	@echo "  install-profile         - Install provisioning profile"
+	@echo "  bump-build              - Increment build number (CURRENT_PROJECT_VERSION only)"
+	@echo "  upload-testflight       - Full TestFlight upload workflow"
+	@echo ""
+	@echo "Fastlane (App Store メタデータ管理):"
+	@echo "  fastlane-metadata       - メタデータのみアップロード（スクショなし）"
+	@echo "  fastlane-screenshots    - スクリーンショットのみアップロード"
+	@echo "  fastlane-upload-metadata - メタデータ + スクリーンショット"
+	@echo "  fastlane-upload-build   - ビルドのみアップロード（審査提出なし）"
+	@echo "  fastlane-upload-all     - メタデータ + スクショ + ビルド"
+	@echo "  fastlane-submit         - 審査に提出"
 	@echo ""
 	@echo "  Note: To change the public version, edit MARKETING_VERSION in project.yml manually."
 
@@ -116,6 +124,24 @@ upload-testflight:
 		--apiIssuer $(API_ISSUER_ID); \
 	git push origin HEAD "testflight/$$VERSION-$$BUILD"; \
 	echo "Uploaded $$VERSION (build $$BUILD) to TestFlight"
+
+fastlane-metadata:
+	fastlane mac metadata
+
+fastlane-screenshots:
+	fastlane mac screenshots
+
+fastlane-upload-metadata:
+	fastlane mac upload_metadata
+
+fastlane-upload-build:
+	fastlane mac upload_build
+
+fastlane-upload-all:
+	fastlane mac upload_all
+
+fastlane-submit:
+	fastlane mac submit
 
 # Codex レビュー（差分）
 # 使い方: make review              (未pushコミットの差分レビュー)

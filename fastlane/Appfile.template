@@ -1,0 +1,18 @@
+# App Store Connect 設定
+# https://docs.fastlane.tools/actions/deliver/
+
+# App Identifier (Bundle ID)
+app_identifier "{{BUNDLE_ID}}"
+
+# Apple ID (メールアドレス)
+apple_id "{{APPLE_ID}}"
+
+# Team ID (Apple Developer Program)
+team_id "{{TEAM_ID}}"
+
+# App Store Connect Team ID (通常は Team ID と同じ)
+itc_team_id "{{ITC_TEAM_ID}}"
+
+# Issuer ID: {{ISSUER_ID}}
+# Key ID: {{API_KEY_ID}}
+# アクセス: App Manager
