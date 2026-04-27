@@ -8,13 +8,43 @@
 #   fastlane mac upload_build    -- ビルドのみ（審査提出なし）
 #   fastlane mac upload_all      -- メタデータ + スクショ + ビルド
 #   fastlane mac submit          -- 審査に提出
+#
+# メタデータ・スクリーンショットの実体は project.yml の MARKETING_VERSION に
+# ひも付いた releases/v$(MARKETING_VERSION)/{metadata,screenshots}/ にある。
+# 編集対象はそのディレクトリだけ。fastlane/metadata, fastlane/screenshots は使わない。
 
 default_platform(:mac)
+
+def current_marketing_version
+  yml = File.read("../project.yml")
+  match = yml.match(/MARKETING_VERSION:\s*"([^"]+)"/)
+  raise "MARKETING_VERSION not found in project.yml" unless match
+  match[1]
+end
+
+def release_metadata_path
+  v = current_marketing_version
+  path = "../releases/v#{v}/metadata"
+  unless Dir.exist?(path)
+    raise "Metadata directory not found: releases/v#{v}/metadata\n" \
+          "MARKETING_VERSION=#{v} に対応するメタデータディレクトリが存在しない。\n" \
+          "前バージョンから cp -r releases/vPREV/metadata releases/v#{v}/metadata で初期化してください。"
+  end
+  path
+end
+
+def release_screenshots_path
+  v = current_marketing_version
+  path = "../releases/v#{v}/screenshots"
+  Dir.mkdir(path) unless Dir.exist?(path)
+  path
+end
 
 platform :mac do
   desc "メタデータのみアップロード（スクリーンショットなし）"
   lane :metadata do
     deliver(
+      metadata_path: release_metadata_path,
       skip_binary_upload: true,
       skip_screenshots: true,
       force: true
@@ -24,6 +54,7 @@ platform :mac do
   desc "スクリーンショットのみアップロード"
   lane :screenshots do
     deliver(
+      screenshots_path: release_screenshots_path,
       skip_binary_upload: true,
       skip_metadata: true,
       overwrite_screenshots: true,
@@ -34,6 +65,8 @@ platform :mac do
   desc "メタデータ + スクリーンショットをアップロード"
   lane :upload_metadata do
     deliver(
+      metadata_path: release_metadata_path,
+      screenshots_path: release_screenshots_path,
       skip_binary_upload: true,
       force: true
     )
@@ -41,7 +74,7 @@ platform :mac do
 
   desc "ビルドをアップロード（審査には提出しない）"
   lane :upload_build do |options|
-    pkg_path = options[:pkg] || ENV["PKG_PATH"] || "../dist/{{APP_NAME}}.pkg"
+    pkg_path = options[:pkg] || ENV["PKG_PATH"] || Dir["../build/export/*.pkg"].first
 
     deliver(
       pkg: pkg_path,
@@ -55,10 +88,12 @@ platform :mac do
 
   desc "全てアップロード（メタデータ + スクショ + ビルド）"
   lane :upload_all do |options|
-    pkg_path = options[:pkg] || ENV["PKG_PATH"] || "../dist/{{APP_NAME}}.pkg"
+    pkg_path = options[:pkg] || ENV["PKG_PATH"] || Dir["../build/export/*.pkg"].first
 
     deliver(
       pkg: pkg_path,
+      metadata_path: release_metadata_path,
+      screenshots_path: release_screenshots_path,
       skip_binary_upload: false,
       submit_for_review: false,
       force: true

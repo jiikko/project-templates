@@ -1,12 +1,11 @@
 # Deliver 設定 (iOS)
 # https://docs.fastlane.tools/actions/deliver/
+#
+# metadata_path / screenshots_path は Fastfile の各 lane が
+# project.yml の MARKETING_VERSION から動的に解決するためここでは指定しない。
 
 # App Store Connect API Key 認証（Apple ID / パスワードは使わない）
 api_key_path "./fastlane/api_key.json"
-
-# メタデータ・スクリーンショットのパス
-metadata_path    "./fastlane/metadata"
-screenshots_path "./fastlane/screenshots"
 
 # スクリーンショットを上書きする
 overwrite_screenshots true

@@ -7,7 +7,7 @@ PROFILE_UUID = {{PROFILE_UUID}}
 API_KEY_ID = {{API_KEY_ID}}
 API_ISSUER_ID = 69a6de7e-1d0c-47e3-e053-5b8c7c11a4d1
 
-.PHONY: help setup dev dev-fg build test lint lint-issues clean archive-mas install-profile bump-build upload-testflight asc-metadata asc-screenshots asc-upload asc-upload-build asc-upload-all asc-submit snapshot-release review review-full review-status review-fetch review-close
+.PHONY: help setup dev dev-fg build test lint lint-issues clean archive-mas install-profile bump-build upload-testflight asc-metadata asc-screenshots asc-upload asc-upload-build asc-upload-all asc-submit review review-full review-status review-fetch review-close
 
 help:
 	@echo "Usage: make [target]"
@@ -34,7 +34,7 @@ help:
 	@echo "  asc-upload-build    - ビルドのみアップロード（審査提出なし）"
 	@echo "  asc-upload-all      - メタデータ + スクショ + ビルド"
 	@echo "  asc-submit          - 審査に提出"
-	@echo "  snapshot-release    - fastlane/metadata/ を releases/vX.X.X/ にコピー（MARKETING_VERSION を project.yml から取得）"
+	@echo "  ※ asc-* のアップロード元は releases/v\$$(MARKETING_VERSION)/{metadata,screenshots}/"
 	@echo ""
 	@echo "  Note: To change the public version, edit MARKETING_VERSION in project.yml manually."
 
@@ -143,15 +143,6 @@ asc-upload-all:
 
 asc-submit:
 	fastlane mac submit
-
-# fastlane/metadata/ を releases/vX.X.X/metadata/ にコピー
-# バージョンは project.yml の MARKETING_VERSION を自動取得
-snapshot-release:
-	@VERSION=$$(grep 'MARKETING_VERSION' project.yml | head -1 | sed 's/.*"\(.*\)"/\1/'); \
-	DEST=releases/v$$VERSION; \
-	mkdir -p $$DEST/metadata $$DEST/screenshots; \
-	cp -r fastlane/metadata/. $$DEST/metadata/; \
-	echo "Saved fastlane/metadata/ -> $$DEST/metadata/ (v$$VERSION)"
 
 # Codex レビュー（差分）
 # 使い方: make review              (未pushコミットの差分レビュー)
