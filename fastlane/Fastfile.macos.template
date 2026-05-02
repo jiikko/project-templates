@@ -2,16 +2,25 @@
 # https://docs.fastlane.tools/
 #
 # 標準 lane 一覧:
-#   fastlane mac metadata        -- メタデータのみ（スクショなし）
-#   fastlane mac screenshots     -- スクリーンショットのみ
-#   fastlane mac upload_metadata -- メタデータ + スクリーンショット
-#   fastlane mac upload_build    -- ビルドのみ（審査提出なし）
-#   fastlane mac upload_all      -- メタデータ + スクショ + ビルド
-#   fastlane mac submit          -- 審査に提出
+#   fastlane mac metadata             -- メタデータのみ（スクショなし）
+#   fastlane mac screenshots          -- スクリーンショットのみ
+#   fastlane mac upload_metadata      -- メタデータ + スクリーンショット
+#   fastlane mac upload_build         -- ビルドのみ（審査提出なし）
+#   fastlane mac upload_all           -- メタデータ + スクショ + ビルド
+#   fastlane mac submit               -- 審査に提出
+#   fastlane mac availability_show    -- 配信対象 territory を ASC から取得して表示
+#   fastlane mac availability_apply   -- fastlane/availability.json から ASC に反映
 #
 # メタデータ・スクリーンショットの実体は project.yml の MARKETING_VERSION に
 # ひも付いた releases/v$(MARKETING_VERSION)/{metadata,screenshots}/ にある。
 # 編集対象はそのディレクトリだけ。fastlane/metadata, fastlane/screenshots は使わない。
+#
+# 配信対象 territory（app-level、version 非依存）は fastlane/availability.json
+# が単一マスター。Web 上で territory を変更したら availability.json を
+# 更新して push し直すのが正規ルート（version-specific ではないため
+# releases/v$(MARKETING_VERSION)/ には置かない）。
+
+require 'json'
 
 default_platform(:mac)
 
@@ -38,6 +47,31 @@ def release_screenshots_path
   path = "../releases/v#{v}/screenshots"
   Dir.mkdir(path) unless Dir.exist?(path)
   path
+end
+
+def app_bundle_id_from_appfile
+  # fastlane は実行時に fastlane/ ディレクトリへ chdir するため Appfile は ./Appfile
+  appfile = File.read("./Appfile")
+  match = appfile.match(/app_identifier\s+["']([^"']+)["']/)
+  raise "app_identifier not found in fastlane/Appfile" unless match
+  match[1]
+end
+
+def availability_path
+  "./availability.json"
+end
+
+# Spaceship::ConnectAPI のグローバルセッションを設定する。
+# fastlane の deliver action は内部で同様の処理を行うが、
+# 直接 Spaceship API を呼ぶ lane では明示的に session を作る必要がある。
+def establish_asc_session
+  require 'spaceship'
+  api_key_json = JSON.parse(File.read("./api_key.json"))
+  Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
+    key_id: api_key_json["key_id"],
+    issuer_id: api_key_json["issuer_id"],
+    key: api_key_json["key"]
+  )
 end
 
 platform :mac do
@@ -110,5 +144,51 @@ platform :mac do
       automatic_release: false,
       force: true
     )
+  end
+
+  desc "ASC の現在の配信対象 territory（app-level）を取得して表示"
+  lane :availability_show do
+    establish_asc_session
+
+    bundle_id = app_bundle_id_from_appfile
+    app = Spaceship::ConnectAPI::App.find(bundle_id)
+    UI.user_error!("App not found for bundle id #{bundle_id}") unless app
+
+    availabilities = app.get_app_availabilities(
+      includes: "territoryAvailabilities",
+      limit: { "territoryAvailabilities" => 200 }
+    )
+    territory_ids = availabilities
+      .flat_map { |a| Array(a.territoryAvailabilities) }
+      .select { |ta| ta.available }
+      .map(&:id)
+      .sort
+
+    UI.message "Currently available in #{territory_ids.size} territories:"
+    UI.message JSON.pretty_generate({ "territories" => territory_ids })
+    UI.message ""
+    UI.message "fastlane/availability.json を初期化するには上記 JSON を保存してください。"
+  end
+
+  desc "fastlane/availability.json を ASC に反映（territory_ids を更新）"
+  lane :availability_apply do
+    establish_asc_session
+
+    path = availability_path
+    UI.user_error!("availability.json not found: fastlane/#{File.basename(path)}\n" \
+                   "fastlane mac availability_show で現状値を取得して JSON を作成してください。") unless File.exist?(path)
+
+    config = JSON.parse(File.read(path))
+    territory_ids = config["territories"] || []
+    UI.user_error!("`territories` must be an Array of territory IDs (ISO 3166 alpha-3)") unless territory_ids.is_a?(Array)
+    UI.user_error!("territories array is empty. 全 territory から外す場合は明示的に allow_removing_from_sale を意図する設計が必要。安全のため空配列での apply は拒否しています。") if territory_ids.empty?
+
+    bundle_id = app_bundle_id_from_appfile
+    app = Spaceship::ConnectAPI::App.find(bundle_id)
+    UI.user_error!("App not found for bundle id #{bundle_id}") unless app
+
+    UI.message "Applying #{territory_ids.size} territories from #{path}..."
+    app.update(territory_ids: territory_ids)
+    UI.success "App availability updated. fastlane mac availability_show で確認してください。"
   end
 end

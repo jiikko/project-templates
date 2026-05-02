@@ -121,10 +121,46 @@ releases/v${V}/metadata/en-US/release_notes.txt # リリースノート（4000�
 | `asc-upload-build` | ビルドのみアップロード（審査提出なし） |
 | `asc-upload-all` | メタデータ + スクショ + ビルド |
 | `asc-submit` | 審査に提出 |
+| `asc-availability-show` | ASC の現在の配信対象 territory を表示 |
+| `asc-availability-apply` | `fastlane/availability.json` を ASC に反映 |
 
 ```bash
 make asc-metadata       # メタデータアップロード（releases/v$(MARKETING_VERSION)/metadata から）
 ```
+
+## 配信対象 territory の管理
+
+App Store の配信国/地域（territory）は **app-level 設定**で version 非依存のため、
+`releases/v$(MARKETING_VERSION)/` ではなく **`fastlane/availability.json`** が
+単一マスター。
+
+```json
+{
+  "_comment": "ISO 3166 alpha-3。fastlane mac availability_show で現状取得。",
+  "territories": ["JPN", "USA", "GBR"]
+}
+```
+
+**運用フロー:**
+
+```bash
+# 現状を取得
+make asc-availability-show
+# → コピペで fastlane/availability.json を作成 / 更新
+
+# JSON を編集（territory 追加 or 削除）
+$EDITOR fastlane/availability.json
+
+# ASC に反映
+make asc-availability-apply
+```
+
+Web 上で territory を変更したら、`asc-availability-show` で取り直して
+`availability.json` を更新 → push し直すのが正規ルート（メタデータと同じ方針）。
+
+**注意:** territory_ids 配列が空のままで `apply` を実行することは禁止
+（全 territory から削除 = App Store から削除 と同じため）。意図的に
+全 territory から外す場合は Web UI 経由で操作してください。
 
 ## ディレクトリ構造（プロジェクトルートでの最終形）
 
@@ -133,6 +169,7 @@ fastlane/
 ├── Appfile                    # Bundle ID・認証情報（プレースホルダーを置換）
 ├── Deliverfile                # deliver のデフォルト設定
 ├── Fastfile                   # lane 定義（バージョンディレクトリを動的解決）
+├── availability.json          # 配信対象 territory（ISO 3166 alpha-3、app-level）
 ├── api_key.json               # App Store Connect API Key
 └── AuthKey_XXXXXXXXXX.p8      # 秘密鍵
 releases/

@@ -1,0 +1,4 @@
+{
+  "_comment": "App Store の配信対象 territory（ISO 3166 alpha-3）の単一マスター。`fastlane mac availability_show` で現状取得 → このファイルを更新 → `fastlane mac availability_apply` で ASC に反映。app-level 設定なので version 非依存。",
+  "territories": []
+}
