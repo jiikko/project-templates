@@ -192,25 +192,25 @@ platform :mac do
     UI.message "fastlane/availability.json を初期化するには上記 JSON を保存してください。"
   end
 
-  desc "fastlane/availability.json を ASC に反映（territory_ids を更新）"
+  desc "fastlane/availability.json を ASC に反映（territory_ids を更新）[WIP]"
   lane :availability_apply do
-    establish_asc_session
-
-    path = availability_path
-    UI.user_error!("availability.json not found: fastlane/#{File.basename(path)}\n" \
-                   "fastlane mac availability_show で現状値を取得して JSON を作成してください。") unless File.exist?(path)
-
-    config = JSON.parse(File.read(path))
-    territory_ids = config["territories"] || []
-    UI.user_error!("`territories` must be an Array of territory IDs (ISO 3166 alpha-3)") unless territory_ids.is_a?(Array)
-    UI.user_error!("territories array is empty. 全 territory から外す場合は明示的に allow_removing_from_sale を意図する設計が必要。安全のため空配列での apply は拒否しています。") if territory_ids.empty?
-
-    bundle_id = app_bundle_id_from_appfile
-    app = Spaceship::ConnectAPI::App.find(bundle_id)
-    UI.user_error!("App not found for bundle id #{bundle_id}") unless app
-
-    UI.message "Applying #{territory_ids.size} territories from #{path}..."
-    app.update(territory_ids: territory_ids)
-    UI.success "App availability updated. fastlane mac availability_show で確認してください。"
+    # Apple ASC API の AppAvailability v2 は仕様変更が複数回入っており、
+    # 単純な territory_ids のリスト patch では受け付けない:
+    #   - 旧 Spaceship App#update(territory_ids:) → /v1/apps/{id}/availableTerritories
+    #     関係が削除済み（404）
+    #   - POST /v2/appAvailabilities → 既存 AppAvailability があるため 409
+    #   - PATCH /v2/appAvailabilities/{id} は Apple サンプルが乏しく、
+    #     全 territory resource を included に展開する必要があり仕様の
+    #     詰め切りが必要
+    #
+    # 当面は availability_show で現状取得 + Web UI（App Store Connect）で
+    # 配信対象を編集する運用を推奨。ローカル fastlane/availability.json は
+    # 「現状の単一マスター」として保持し、apply 実装は spaceship 側の
+    # メンテナンス追従を待つ。
+    UI.user_error!(
+      "availability_apply は WIP（Apple ASC API 仕様変更により未実装）。\n" \
+      "現状: make asc-availability-show で取得 → Web UI で編集 →\n" \
+      "      取得値を fastlane/availability.json に再保存して push、の運用。"
+    )
   end
 end

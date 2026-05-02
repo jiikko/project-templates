@@ -141,26 +141,30 @@ App Store の配信国/地域（territory）は **app-level 設定**で version 
 }
 ```
 
-**運用フロー:**
+**運用フロー（show は実装済み、apply は WIP）:**
 
 ```bash
 # 現状を取得
 make asc-availability-show
 # → コピペで fastlane/availability.json を作成 / 更新
 
-# JSON を編集（territory 追加 or 削除）
+# JSON を編集（territory 追加 or 削除）→ Web UI で同じ変更を適用
 $EDITOR fastlane/availability.json
-
-# ASC に反映
-make asc-availability-apply
+# 当面は ASC Web UI で territory を編集する（apply は未実装）
 ```
 
 Web 上で territory を変更したら、`asc-availability-show` で取り直して
 `availability.json` を更新 → push し直すのが正規ルート（メタデータと同じ方針）。
 
-**注意:** territory_ids 配列が空のままで `apply` を実行することは禁止
-（全 territory から削除 = App Store から削除 と同じため）。意図的に
-全 territory から外す場合は Web UI 経由で操作してください。
+**`availability_apply` は WIP（未実装）:**
+- Apple ASC API の AppAvailability v2 は仕様変更が複数回入っており、
+  Spaceship 側のメンテナンスが追いついていない
+- 旧 `App#update(territory_ids:)` は `/v1/apps/{id}/availableTerritories`
+  relationship を削除済みで 404
+- 新 `POST /v2/appAvailabilities` は既存 AppAvailability があると 409
+- `PATCH /v2/appAvailabilities/{id}` は Apple サンプルが乏しく、全
+  territory resource を included に展開する必要があり要詰め切り
+- 当面は **show のみ + Web UI で編集** の運用
 
 ## ディレクトリ構造（プロジェクトルートでの最終形）
 
