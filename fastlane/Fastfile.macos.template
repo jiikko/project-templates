@@ -21,6 +21,7 @@
 # releases/v$(MARKETING_VERSION)/ には置かない）。
 
 require 'json'
+require 'base64'
 
 default_platform(:mac)
 
@@ -59,6 +60,17 @@ end
 
 def availability_path
   "./availability.json"
+end
+
+# Apple ASC API の territoryAvailability resource id は
+# urlsafe_base64({"s":"<app_id>","t":"<territory_code>"}) という規約。
+# これを decode して territory code (ISO 3166 alpha-3) を取り出す。
+def territory_code_from_resource_id(resource_id)
+  decoded = Base64.urlsafe_decode64(resource_id)
+  parsed = JSON.parse(decoded)
+  parsed["t"]
+rescue StandardError
+  nil
 end
 
 # Spaceship::ConnectAPI のグローバルセッションを設定する。
@@ -154,15 +166,25 @@ platform :mac do
     app = Spaceship::ConnectAPI::App.find(bundle_id)
     UI.user_error!("App not found for bundle id #{bundle_id}") unless app
 
-    availabilities = app.get_app_availabilities(
-      includes: "territoryAvailabilities",
-      limit: { "territoryAvailabilities" => 200 }
-    )
-    territory_ids = availabilities
-      .flat_map { |a| Array(a.territoryAvailabilities) }
-      .select { |ta| ta.available }
-      .map(&:id)
-      .sort
+    # /v2/appAvailabilities/{id}/territoryAvailabilities を pagination で取得。
+    # Apple は relationships endpoint を Spaceship に wrapper しないので raw HTTP。
+    # resource id は base64({s: app_id, t: territory_code}) を decode する規約。
+    client = Spaceship::ConnectAPI.token ? Spaceship::ConnectAPI : raise("No ASC session")
+    url = "v2/appAvailabilities/#{app.id}/territoryAvailabilities?limit=50"
+    territory_ids = []
+    loop do
+      resp = client.tunes_request_client.get(url)
+      body = resp.body
+      Array(body["data"]).each do |t|
+        next unless t.dig("attributes", "available")
+        code = territory_code_from_resource_id(t["id"])
+        territory_ids << code if code
+      end
+      next_url = body.dig("links", "next")
+      break unless next_url
+      url = next_url.sub(%r{^https?://[^/]+/}, "")
+    end
+    territory_ids.sort!
 
     UI.message "Currently available in #{territory_ids.size} territories:"
     UI.message JSON.pretty_generate({ "territories" => territory_ids })
