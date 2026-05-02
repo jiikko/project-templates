@@ -9,14 +9,14 @@
 #   fastlane mac upload_all           -- メタデータ + スクショ + ビルド
 #   fastlane mac submit               -- 審査に提出
 #   fastlane mac availability_show    -- 配信対象 territory を ASC から取得して表示
-#   fastlane mac availability_apply   -- fastlane/availability.json から ASC に反映
+#   fastlane mac availability_apply   -- fastlane/available_territories.json から ASC に反映
 #
 # メタデータ・スクリーンショットの実体は project.yml の MARKETING_VERSION に
 # ひも付いた releases/v$(MARKETING_VERSION)/{metadata,screenshots}/ にある。
 # 編集対象はそのディレクトリだけ。fastlane/metadata, fastlane/screenshots は使わない。
 #
-# 配信対象 territory（app-level、version 非依存）は fastlane/availability.json
-# が単一マスター。Web 上で territory を変更したら availability.json を
+# 配信対象 territory（app-level、version 非依存）は fastlane/available_territories.json
+# が単一マスター。Web 上で territory を変更したら available_territories.json を
 # 更新して push し直すのが正規ルート（version-specific ではないため
 # releases/v$(MARKETING_VERSION)/ には置かない）。
 
@@ -59,7 +59,7 @@ def app_bundle_id_from_appfile
 end
 
 def availability_path
-  "./availability.json"
+  "./available_territories.json"
 end
 
 # Apple ASC API の territoryAvailability resource id は
@@ -189,10 +189,10 @@ platform :mac do
     UI.message "Currently available in #{territory_ids.size} territories:"
     UI.message JSON.pretty_generate({ "territories" => territory_ids })
     UI.message ""
-    UI.message "fastlane/availability.json を初期化するには上記 JSON を保存してください。"
+    UI.message "fastlane/available_territories.json を初期化するには上記 JSON を保存してください。"
   end
 
-  desc "fastlane/availability.json を ASC に反映（territory_ids を更新）[WIP]"
+  desc "fastlane/available_territories.json を ASC に反映（territory_ids を更新）[WIP]"
   lane :availability_apply do
     # Apple ASC API の AppAvailability v2 は仕様変更が複数回入っており、
     # 単純な territory_ids のリスト patch では受け付けない:
@@ -204,13 +204,13 @@ platform :mac do
     #     詰め切りが必要
     #
     # 当面は availability_show で現状取得 + Web UI（App Store Connect）で
-    # 配信対象を編集する運用を推奨。ローカル fastlane/availability.json は
+    # 配信対象を編集する運用を推奨。ローカル fastlane/available_territories.json は
     # 「現状の単一マスター」として保持し、apply 実装は spaceship 側の
     # メンテナンス追従を待つ。
     UI.user_error!(
       "availability_apply は WIP（Apple ASC API 仕様変更により未実装）。\n" \
       "現状: make asc-availability-show で取得 → Web UI で編集 →\n" \
-      "      取得値を fastlane/availability.json に再保存して push、の運用。"
+      "      取得値を fastlane/available_territories.json に再保存して push、の運用。"
     )
   end
 end
