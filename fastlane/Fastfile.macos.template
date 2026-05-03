@@ -90,6 +90,7 @@ platform :mac do
   desc "メタデータのみアップロード（スクリーンショットなし）"
   lane :metadata do
     deliver(
+      app_version: current_marketing_version,
       metadata_path: release_metadata_path,
       skip_binary_upload: true,
       skip_screenshots: true,
@@ -100,6 +101,7 @@ platform :mac do
   desc "スクリーンショットのみアップロード"
   lane :screenshots do
     deliver(
+      app_version: current_marketing_version,
       screenshots_path: release_screenshots_path,
       skip_binary_upload: true,
       skip_metadata: true,
@@ -111,6 +113,7 @@ platform :mac do
   desc "メタデータ + スクリーンショットをアップロード"
   lane :upload_metadata do
     deliver(
+      app_version: current_marketing_version,
       metadata_path: release_metadata_path,
       screenshots_path: release_screenshots_path,
       skip_binary_upload: true,
@@ -149,6 +152,7 @@ platform :mac do
   desc "審査に提出"
   lane :submit do
     deliver(
+      app_version: current_marketing_version,
       skip_binary_upload: true,
       skip_screenshots: true,
       skip_metadata: true,
