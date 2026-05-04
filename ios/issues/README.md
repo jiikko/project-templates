@@ -53,6 +53,8 @@ issues/
 ```markdown
 # Issue Title
 
+**作成日**: YYYY-MM-DD
+
 ## 概要
 問題や機能の簡潔な説明
 

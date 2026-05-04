@@ -65,6 +65,8 @@ Issue一覧・優先度・ステータスはアプリ固有の `INDEX.md` で管
 ```markdown
 # Issue Title
 
+**作成日**: YYYY-MM-DD
+
 ## 概要
 問題や機能の簡潔な説明
 
