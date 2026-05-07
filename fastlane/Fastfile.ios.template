@@ -36,7 +36,16 @@ end
 def release_screenshots_path
   v = current_marketing_version
   path = "../releases/v#{v}/screenshots"
-  Dir.mkdir(path) unless Dir.exist?(path)
+  # release_metadata_path と対称に fail-fast にする (auto-mkdir 禁止)。
+  # 過去 `Dir.mkdir(path) unless Dir.exist?(path)` で silent に空 dir を
+  # 作っていたが、cwd 違い / バージョン文字列ミスマッチでも errors out せず
+  # 空 screenshots dir を作り、`deliver(overwrite_screenshots: true)` が
+  # それを App Store screenshots の wipe upload と解釈する潜在事故を生む。
+  unless Dir.exist?(path)
+    raise "Screenshots directory not found: releases/v#{v}/screenshots\n" \
+          "MARKETING_VERSION=#{v} に対応する screenshots ディレクトリが存在しない。\n" \
+          "前バージョンから cp -r releases/vPREV/screenshots releases/v#{v}/screenshots で初期化してください。"
+  end
   path
 end
 
