@@ -5,6 +5,9 @@
 
 set -euo pipefail
 
+# CDPATH が export されていると `$(cd ... && pwd)` が壊れるため (cd が解決先 path を stdout に出力する).
+unset CDPATH
+
 ISSUES_DIR="$(cd "$(dirname "$0")/.." && pwd)/issues"
 VALID_PREFIXES="feat|bug|refactor|perf|ux"
 errors=0
