@@ -87,6 +87,23 @@ MyApp/
 └── Shared/              # 共通コード（Swift Package等）
 ```
 
+## Localization テンプレート (macOS)
+
+[`macos/localization/`](macos/localization/) に String Catalog (`Localizable.xcstrings`) と整合性テスト、test scheme 言語固定の標準セットアップが格納されている。
+
+| ファイル | 用途 |
+|---------|------|
+| `Localizable.xcstrings` | 空 catalog の skeleton (sourceLanguage: en) |
+| `LocalizableCatalogTests.swift.template` | catalog 整合性テスト (ja 翻訳漏れ / stale / en source への日本語混入 / escape leak / interpolation leak の 5 検証、Swift Testing) |
+| `postBuildScript.yml.snippet` | catalog を `LocalizableSource.json` として test bundle に同梱する shell + inputFiles / outputFiles |
+
+このテンプレートが解く問題:
+
+- `String(localized:)` / `LocalizedStringResource` を引く test の **runtime 言語依存** (CI / local の OS preferredLocalizations で結果が変わる) を test scheme の `-AppleLanguages "(en)"` pin で消す
+- catalog 自体の整合性破壊 (key 重複、stale 残骸、動的 interpolation leak、escape sequence 不一致) を CI でガード
+
+採用手順は [`macos/localization/README.md`](macos/localization/README.md) を参照。
+
 ## Fastlane テンプレート
 
 [`fastlane/`](fastlane/) に全アプリ共通の Fastlane 標準セットアップが格納されている。

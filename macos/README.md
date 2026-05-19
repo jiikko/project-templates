@@ -46,6 +46,20 @@
 
 ---
 
+## Localization (任意)
+
+String Catalog (`Localizable.xcstrings`) + 整合性テスト + test scheme 言語固定を採用する場合は [`localization/`](localization/) のテンプレートを利用する。
+
+採用すると以下を自動で得られる:
+
+- `Localizable.xcstrings` を `Resources/` に置き、SwiftUI が `Text("...")` / `Button("...")` 等の literal を自動 lookup
+- `LocalizableCatalogTests` (Swift Testing) が catalog 整合性 (ja 翻訳漏れ / stale / 日本語混入 / escape leak / interpolation leak) を CI でガード
+- test scheme の `-AppleLanguages "(en)"` pin で `String(localized:)` の runtime 言語依存を解消
+
+採用手順は [`localization/README.md`](localization/README.md) を参照。`project.yml.template` の `options.developmentLanguage` と `schemes.<name>.test.commandLineArguments` には localization 採用時に有効化する目印のコメントが入っている。
+
+---
+
 ## バージョン管理
 
 ### バージョニング規則

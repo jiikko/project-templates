@@ -4,6 +4,8 @@ options:
   deploymentTarget:
     macOS: "14.0"
   xcodeVersion: "15.0"
+  # Localization 採用時に下記を有効化する (詳細: localization/README.md)。
+  # developmentLanguage: en
 
 settings:
   base:
@@ -79,6 +81,12 @@ schemes:
       config: Debug
     test:
       config: Debug
+      # Localization 採用時 (詳細: localization/README.md) は下記を有効化し、
+      # `String(localized:)` / `LocalizedStringResource` を引く test の
+      # runtime 言語依存を消して en 固定で検証する。
+      # commandLineArguments:
+      #   "-AppleLanguages (en)": true
+      #   "-AppleLocale en_US": true
       targets:
         - {{PROJECT_NAME}}Tests
     profile:

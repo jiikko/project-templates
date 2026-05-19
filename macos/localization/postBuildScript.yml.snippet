@@ -1,0 +1,46 @@
+# Localizable.xcstrings 採用時に
+# project.yml の `{{PROJECT_NAME}}Tests` target に追加する snippet。
+# project-templates/macos/localization/README.md の手順 #3 参照。
+
+postBuildScripts:
+  - name: Copy Localizable.xcstrings into test bundle for LocalizableCatalogTests
+    # `LocalizableCatalogTests` は `extractionState` / per-locale `state`
+    # 等、**コンパイル前** の `.xcstrings` (= 生 JSON) を読む必要がある
+    # (compile 後の per-locale `.strings` には含まれない情報)。
+    # `#filePath` ベースでソース解決すると Xcode Cloud の
+    # `build-for-testing` / `test-without-building` 二段構成では test
+    # 実行マシンにソースが存在せず読めない。
+    #
+    # 回避策: 拡張子を `.json` にコピーすることで Xcode の
+    # xcstringstool 自動コンパイルを避け、test bundle Resources に
+    # raw JSON として同梱する。test 側は
+    # `Bundle(for: type(of: self)).url(forResource: "LocalizableSource", withExtension: "json")`
+    # で読む。
+    #
+    # 二箇所にコピーする理由:
+    # - `${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}` は
+    #   **standalone** な `.xctest/Contents/Resources/` を指す
+    # - 実際にテスト実行時にロードされる bundle は host app に **embed**
+    #   された `{{PROJECT_NAME}}.app/Contents/PlugIns/{{PROJECT_NAME}}Tests.xctest/Contents/Resources/`
+    #   で、こちらは `${TEST_HOST}` (= 実行ファイルパス) 起点の
+    #   `../PlugIns/${PRODUCT_NAME}.xctest/Contents/Resources/` で表現
+    # - test 実行は embed 側を見るが、Xcode Cloud で artifact 取得する
+    #   build-for-testing 経路では standalone 側が使われる。両方コピー
+    script: |
+      set -euo pipefail
+      unset CDPATH
+      SRC="${SRCROOT}/{{PROJECT_NAME}}/Resources/Localizable.xcstrings"
+      STANDALONE_DST="${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/LocalizableSource.json"
+      mkdir -p "$(dirname "$STANDALONE_DST")"
+      cp "$SRC" "$STANDALONE_DST"
+      if [ -n "${TEST_HOST:-}" ]; then
+        EMBED_DIR="$(dirname "$(dirname "$TEST_HOST")")/PlugIns/${PRODUCT_NAME}.xctest/Contents/Resources"
+        if [ -d "$(dirname "$EMBED_DIR")" ]; then
+          mkdir -p "$EMBED_DIR"
+          cp "$SRC" "$EMBED_DIR/LocalizableSource.json"
+        fi
+      fi
+    inputFiles:
+      - ${SRCROOT}/{{PROJECT_NAME}}/Resources/Localizable.xcstrings
+    outputFiles:
+      - ${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/LocalizableSource.json

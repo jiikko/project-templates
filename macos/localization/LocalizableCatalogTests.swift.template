@@ -1,0 +1,203 @@
+import Foundation
+import Testing
+
+/// `Localizable.xcstrings` の完全性を検証するテスト。
+///
+/// sourceLanguage = "en" 構造のもとで、ja 翻訳漏れ・stale エントリ・
+/// EN キーへの日本語混入を CI でガードする。catalog 側の整合性チェック
+/// 専用なので SUT への依存は無い。
+///
+/// **採用手順**: `project-templates/macos/localization/README.md` 参照。
+/// このテストが動くには以下が前提:
+/// - `{{PROJECT_NAME}}/Resources/Localizable.xcstrings` が存在する
+/// - `project.yml` の `{{PROJECT_NAME}}Tests` target に `postBuildScripts`
+///   が定義され、catalog を `LocalizableSource.json` として test bundle に
+///   copy している (詳細は localization/postBuildScript.yml.snippet)
+/// - test scheme の `commandLineArguments` で `-AppleLanguages "(en)"` を
+///   pin している (`String(localized:)` を引く ViewInspector 系 test の
+///   環境依存除去)
+@Suite("Localizable catalog integrity")
+struct LocalizableCatalogTests {
+    /// 日本語が key 自身に残っていても良いキー (固有名詞、proverb、商標等)。
+    /// プロジェクト固有の固有名詞を追加するときはここに登録する。
+    private static let proverbAllowlist: Set<String> = []
+
+    /// 全 key に対して ja 翻訳が translated 状態で存在することを保証する。
+    /// sourceLanguage = en なので、en は key そのものとして暗黙に存在し、
+    /// localizations 配下に現れないのが正常。
+    @Test("All keys have a translated ja value")
+    func allKeysHaveTranslatedJapaneseValue() throws {
+        let catalog = try Self.loadCatalog()
+        var failures: [String] = []
+        for (key, entry) in catalog.strings {
+            guard let ja = entry.localizations?["ja"]?.stringUnit else {
+                failures.append("missing ja: \(key)")
+                continue
+            }
+            if ja.state != "translated" {
+                failures.append("not translated (state=\(ja.state)): \(key)")
+            }
+        }
+        #expect(
+            failures.isEmpty,
+            Comment(rawValue: "\(failures.count) untranslated keys (ja missing):\n" + failures.sorted().joined(separator: "\n"))
+        )
+    }
+
+    /// EN source key 自身に日本語文字が混入していないことを検証する。
+    /// 固有名詞は `proverbAllowlist` で許容する。
+    @Test("Keys contain no Japanese characters (en source language)")
+    func keysHaveNoJapaneseCharacters() throws {
+        let catalog = try Self.loadCatalog()
+        var failures: [String] = []
+        for key in catalog.strings.keys {
+            guard !Self.proverbAllowlist.contains(key) else { continue }
+            if key.containsJapanese {
+                failures.append(key)
+            }
+        }
+        #expect(
+            failures.isEmpty,
+            Comment(rawValue: "EN source keys contain Japanese characters (固有名詞なら proverbAllowlist に追加):\n" + failures.sorted().joined(separator: "\n"))
+        )
+    }
+
+    /// 使われなくなった (stale) key が残っていないことを検証する。Xcode が
+    /// auto extraction で生成した `extractionState = "stale"` を catch する。
+    @Test("No stale keys remain")
+    func noStaleKeys() throws {
+        let catalog = try Self.loadCatalog()
+        let stale = catalog.strings
+            .filter { $0.value.extractionState == "stale" }
+            .keys
+            .sorted()
+        #expect(
+            stale.isEmpty,
+            Comment(rawValue: "Stale keys remain (使われなくなったキーは catalog から削除すること):\n" + stale.joined(separator: "\n"))
+        )
+    }
+
+    /// catalog key に literal escape sequence (`\\n` 等) を含めない。
+    ///
+    /// xcstrings の JSON value は escape を解釈した実文字を保持する。
+    /// Swift source `"a\nb"` (newline 1 文字) と catalog の `"a\\nb"`
+    /// (`\` と `n` の 2 文字) は異なる key として扱われ catalog miss する。
+    @Test("Keys contain no literal escape sequences")
+    func keysHaveNoLiteralEscapeSequences() throws {
+        let catalog = try Self.loadCatalog()
+        var failures: [String] = []
+        let escapeSequences: [(name: String, pattern: String)] = [
+            ("\\n", #"\n"#),
+            ("\\t", #"\t"#),
+            ("\\r", #"\r"#)
+        ]
+        for key in catalog.strings.keys {
+            for (name, pattern) in escapeSequences where key.contains(pattern) {
+                failures.append("\(key) (literal: \(name))")
+            }
+        }
+        #expect(
+            failures.isEmpty,
+            Comment(rawValue: "Catalog keys must not contain literal escape sequences. Source 側で \\n/\\t/\\r を書いた場合、JSON 値は実文字 (newline 等) で保存すること:\n" + failures.sorted().joined(separator: "\n"))
+        )
+    }
+
+    /// 動的なコード片を catalog key に含めない。
+    ///
+    /// `String(localized: "保存に失敗しました: \(error.localizedDescription)")`
+    /// のような書き方は Xcode が literal source をそのまま catalog key
+    /// として抽出するため、実行時の動的値とは一致せず catalog miss する。
+    /// 動的値は呼び出し側で連結すること
+    /// (`String(localized: "Failed to save") + ": \(value)"`)。
+    @Test("Keys contain no dynamic code interpolation leak")
+    func keysHaveNoCodeInterpolationLeak() throws {
+        let catalog = try Self.loadCatalog()
+        let forbiddenSubstrings = [
+            "localizedDescription",
+            "lastPathComponent",
+            "Self.displayString"
+        ]
+        var failures: [String] = []
+        for key in catalog.strings.keys {
+            for token in forbiddenSubstrings where key.contains(token) {
+                failures.append("\(key) (forbidden: \(token))")
+            }
+        }
+        #expect(
+            failures.isEmpty,
+            Comment(rawValue: "Catalog keys must not contain dynamic code interpolation. 動的値は呼び出し側で連結すること:\n" + failures.sorted().joined(separator: "\n"))
+        )
+    }
+
+    // MARK: - Loader
+
+    private struct Catalog: Decodable {
+        let strings: [String: Entry]
+    }
+
+    private struct Entry: Decodable {
+        let extractionState: String?
+        let localizations: [String: Localization]?
+    }
+
+    private struct Localization: Decodable {
+        let stringUnit: StringUnit?
+    }
+
+    private struct StringUnit: Decodable {
+        let state: String
+        let value: String
+    }
+
+    /// `Localizable.xcstrings` の **コンパイル前** の生 JSON を test bundle
+    /// 内から読む。
+    ///
+    /// 経路:
+    /// - `project.yml` の `{{PROJECT_NAME}}Tests.postBuildScripts` が
+    ///   `{{PROJECT_NAME}}/Resources/Localizable.xcstrings` を test bundle
+    ///   内に `LocalizableSource.json` という名前で copy する (`.xcstrings`
+    ///   拡張子のままだと Xcode が xcstringstool で per-locale `.strings`
+    ///   にコンパイルしてしまい、`extractionState` / per-locale `state`
+    ///   が失われるため、`.json` 拡張子で raw JSON を保持する)
+    /// - 本 loader は `Bundle(for:)` 経由で test bundle から読み取るため、
+    ///   Xcode Cloud のように `build-for-testing` と
+    ///   `test-without-building` が別マシンで動く構成でもソースに依存せず
+    ///   安定して動作する
+    private static func loadCatalog() throws -> Catalog {
+        // Swift Testing には XCTest の `Bundle(for: type(of: self))` 相当
+        // が無いので、本 file 自身が含まれる framework / xctest bundle を
+        // 経由して resource bundle を引き当てる。
+        let bundle = Bundle(for: TestBundleAnchor.self)
+        guard let url = bundle.url(forResource: "LocalizableSource", withExtension: "json") else {
+            throw CatalogLoadError.notFound
+        }
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode(Catalog.self, from: data)
+    }
+}
+
+/// `Bundle(for:)` 用の anchor。Swift Testing の `@Suite` struct には
+/// instance method context が無く `Bundle(for: type(of: self))` が
+/// 使えないので、空の class を test bundle の代表として置く。
+private final class TestBundleAnchor {}
+
+private enum CatalogLoadError: Error, CustomStringConvertible {
+    case notFound
+
+    var description: String {
+        """
+        LocalizableSource.json not found in test bundle.
+        Is the postBuildScripts entry in project.yml ({{PROJECT_NAME}}Tests target) still wired up?
+        """
+    }
+}
+
+private extension String {
+    var containsJapanese: Bool {
+        unicodeScalars.contains { scalar in
+            (0x3040...0x309F).contains(scalar.value) || // Hiragana
+            (0x30A0...0x30FF).contains(scalar.value) || // Katakana
+            (0x4E00...0x9FFF).contains(scalar.value)    // CJK Unified Ideographs
+        }
+    }
+}
