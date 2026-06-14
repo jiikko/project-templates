@@ -8,16 +8,9 @@ on:
       - '.github/workflows/swiftlint.yml'
 
 jobs:
+  # 共通ワークフローに委譲する。lint の実体 (SwiftLint を公式 Docker image で
+  # 実行する構成) は jiikko/shared-workflows 側が正本。個別アプリで素の
+  # swiftlint_linux.zip を bare ubuntu で直接実行すると libsourcekitdInProc.so の
+  # ロードに失敗して exit 132 でクラッシュする (umbrella issues/026)。
   swiftlint:
-    runs-on: ubuntu-slim
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download SwiftLint
-        run: |
-          curl -L https://github.com/realm/SwiftLint/releases/download/0.57.0/swiftlint_linux.zip -o swiftlint.zip
-          unzip swiftlint.zip
-          chmod +x swiftlint
-
-      - name: Run SwiftLint
-        run: ./swiftlint --config .swiftlint.yml
+    uses: jiikko/shared-workflows/.github/workflows/swiftlint.yml@main
