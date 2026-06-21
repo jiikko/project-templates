@@ -129,3 +129,14 @@ custom_rules:
     regex: 'nonisolated\s*\(\s*unsafe\s*\)'
     message: "nonisolated(unsafe)はデータ競合リスクがあります。actorまたは適切な同期機構を使用してください。"
     severity: warning
+
+  # ログを print で出さない (make dev-fg の tee pipe では block-buffered で出ない)
+  # ログは StandardAppLogging の line log (appLog.info / error) を使う。
+  # raw os.Logger を禁止する no_raw_oslogger は StandardAppLogging 採用後に追加する
+  # (未採用 app では Logger の移行先がないため。.claude/rules/macos-debug-logging.md 参照)。
+  no_print_logging:
+    name: "print() for logging"
+    regex: '\bprint\('
+    message: "print は dev-fg の tee pipe で block-buffered になり出ない。ログは StandardAppLogging の line log (appLog.info / error) を使う。詳細: .claude/rules/macos-debug-logging.md"
+    severity: error
+    excluded: ".*Tests.*"
