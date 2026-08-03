@@ -27,8 +27,16 @@ releases/
 | `CURRENT_PROJECT_VERSION` | ビルド番号・整数（例: `7`） | TestFlight アップロードのたびに +1 |
 
 **開発中は `MARKETING_VERSION` を固定したまま、ビルド番号だけ上げ続ける。**
-新しい公開バージョンを App Store に出す準備をするときだけ `project.yml` の `MARKETING_VERSION` を手動で編集する。
-`MARKETING_VERSION` を上げるときは `CURRENT_PROJECT_VERSION` を `1` にリセットする。
+新しい公開バージョンを App Store に出す準備をするときだけ `MARKETING_VERSION` を更新する（`make bump-marketing V=x.y.z`）。
+
+#### ビルド番号の不変条件
+
+- **同一 `MARKETING_VERSION` 内では strictly increasing**。App Store Connect が同一バージョン内の重複ビルド番号を拒否する
+- **`MARKETING_VERSION` を跨いだときの扱いはアプリごとの運用に委ねる**。`1` にリセットしても、そのまま増やし続けてもよい
+
+跨いだときの挙動は各アプリの `make bump-marketing` の実装が正本になる。リセットする実装（`apps/fdup-macos`）と、
+リセットせず increasing を維持する実装（`apps/SnapTrim` / `apps/ThumbnailThumb`）が現存するため、このテンプレートでは
+どちらかに断定しない。新規アプリはどちらかを選び、`bump-marketing` の実装とアプリ側 README の記述を揃えること。
 
 ### タグ形式
 
@@ -48,8 +56,8 @@ make bump-build
 make bump-marketing V=1.1.0
 ```
 
-> **公開バージョン（`MARKETING_VERSION`）は `project.yml` を直接編集して変更する。**
-> App Store 審査提出の準備時だけ手動で変更すること。
+> **公開バージョン（`MARKETING_VERSION`）の変更は `make bump-marketing V=x.y.z` に一本化する。**
+> `project.yml` の手編集は行わない。App Store 審査提出の準備時だけ変更すること。
 
 ## 運用フロー
 
