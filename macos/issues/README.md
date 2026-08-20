@@ -11,6 +11,10 @@
 | `refactor-` | リファクタリング | コード品質改善、整理 | `003-refactor-cleanup-viewmodel.md` |
 | `perf-` | パフォーマンス | 速度改善、最適化 | `004-perf-reduce-memory-usage.md` |
 | `ux-` | UX改善 | 操作性、使い勝手の改善 | `005-ux-improve-onboarding.md` |
+| `human-` | 人間タスク | 動作確認・目視レビュー・判断待ち（`期限:` 必須） | `006-human-verify-export.md` |
+| `chore-` | 雑務 | CI 設定、ツール整備 | `007-chore-fix-ci-runner.md` |
+| `risk-` | リスク記録 | 未確認リスク・観測ポイント | `008-risk-undo-race.md` |
+| `task-` | 引き継ぎ | 移行・引き継ぎ等の作業トラッカー | `009-task-cdn-migration.md` |
 
 ### その他のルール
 
@@ -18,6 +22,8 @@
 - `*.md`: 番号なしIssue（タスクリスト、改善提案、ドキュメント）
 - `done/`: 完了したIssue
 - `pending/`: 着手未定・保留中のIssue
+- `epic/<NNN>/`: 大きな issue (#NNN) を分割した子 issue の置き場（番号付き issue を含むため**採番の走査対象**）
+- `next/`: 次に着手する issue の置き場（同上）
 
 ### Lint
 
@@ -44,6 +50,16 @@ issues/
 - `issues/` 直下: 現在追跡中のIssue
 - `issues/done/`: 完了したIssue
 - `issues/pending/`: 着手未定・保留中のIssue
+- `issues/epic/<NNN>/`: epic の子 issue
+- `issues/next/`: 次に着手する issue
+- **human タスク**（人間しかできない作業: 動作確認・目視レビュー・外部サービス操作・判断待ち）は
+  `issues/` **直下**に `NNN-human-<スラッグ>.md` で起票し、本文に `期限: YYYY-MM-DD` を書く（必須）。
+  済んだら `issues/done/` へ移動する（既読ヘッダーは使わない — 位置がステータスの正本）。
+  チャットで動作確認を依頼して流すのではなく、ここに起こす。期限切れはセッション開始時に
+  dotfiles の `human-tasks-due.sh` hook が注入する（hook の走査対象が issues/ 直下 + pending/
+  のため、サブディレクトリには置かない）
+
+番号付き issue はどのサブディレクトリにも置かれうるため、採番時は必ず全サブディレクトリを走査すること。
 
 - 新規Issueは原則 `issues/` 直下に作成する
 - 完了したら `issues/done/` に移動する
@@ -56,6 +72,7 @@ Issue一覧・優先度・ステータスはアプリ固有の `INDEX.md` で管
 > **新しいissueを追加・完了・ステータス変更したら `INDEX.md` を必ず更新すること。**
 
 `INDEX.md` の運用原則:
+- **トークン消費の抑制**: ファイルが肥大化しないよう、各 Issue の詳細な概要や解説は含めない（トークン節約のため）。
 - **純粋なインデックス**: 番号、タイトル、ステータス、優先度のテーブルのみで構成する。
 - **セクション分け**: Open Issues を種類別に整理する、Done 一覧は書かない。
 

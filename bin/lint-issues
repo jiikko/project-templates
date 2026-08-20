@@ -1,7 +1,7 @@
 #!/bin/bash
 # Issue ファイル名の命名規則チェック
 # 番号付きファイルは NNN-{prefix}-description.md 形式が必須
-# 有効プレフィックス: feat-, bug-, refactor-, perf-, ux-
+# 有効プレフィックス: feat-, bug-, refactor-, perf-, ux-, human-, chore-, risk-, task-
 
 set -euo pipefail
 
@@ -9,7 +9,7 @@ set -euo pipefail
 unset CDPATH
 
 ISSUES_DIR="$(cd "$(dirname "$0")/.." && pwd)/issues"
-VALID_PREFIXES="feat|bug|refactor|perf|ux"
+VALID_PREFIXES="feat|bug|refactor|perf|ux|human|chore|risk|task"
 errors=0
 
 for file in "$ISSUES_DIR"/*.md; do
