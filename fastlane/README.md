@@ -6,31 +6,37 @@
 ## ディレクトリ設計
 
 ```
-fastlane/                                  ← API Key と Fastfile/Deliverfile/Appfile のみ
-releases/v$(MARKETING_VERSION)/metadata/   ← App Store Connect に upload する内容（バージョン直編集）
-releases/v$(MARKETING_VERSION)/screenshots/ ← 同 スクリーンショット
+fastlane/                                       ← API Key と Fastfile/Deliverfile/Appfile のみ
+releases/current/metadata/<locale>/             ← 説明文・キーワード・URL 等（バージョン非依存）
+releases/v$(MARKETING_VERSION)/release_notes/   ← リリースノート（<locale>.txt。バージョン別）
+releases/v$(MARKETING_VERSION)/screenshots/     ← スクリーンショット（バージョン別）
 ```
 
 `fastlane/metadata/`, `fastlane/screenshots/` は **使わない**（fastlane upstream の慣習とは異なる）。
-バージョンディレクトリ自体が「このバージョンで App Store に出す内容」かつ「過去リリースの履歴」を兼ねる。
+
+App Store Connect は説明文・キーワード・サブタイトル等について「現在の値」しか持たない。
+バージョンごとに複製すると **古いディレクトリを編集しても誰も気づかない**ので、共有の 1 組に寄せる。
+過去に何を出したかは git のタグ (`v{MARKETING_VERSION}`) と履歴で辿る。
 
 **運用フロー:**
-1. 新バージョン準備時、前バージョンから初期化
+1. 新バージョン準備時
    ```bash
-   cp -r releases/v1.0.0/metadata releases/v1.0.1/metadata
-   cp -r releases/v1.0.0/screenshots releases/v1.0.1/screenshots
    make bump-marketing V=1.0.1
+   mkdir -p releases/v1.0.1/release_notes releases/v1.0.1/screenshots
+   cp -r releases/v1.0.0/screenshots/. releases/v1.0.1/screenshots/   # 変わらないなら流用
    ```
-2. `releases/v$(MARKETING_VERSION)/{metadata,screenshots}/` を編集
+2. `releases/current/metadata/` (説明文等) と `releases/v$(MARKETING_VERSION)/release_notes/<locale>.txt` を編集
 3. `make asc-metadata` / `make asc-screenshots` / `make asc-upload` で App Store Connect に反映
 
-`project.yml` の `MARKETING_VERSION` を切り替えれば、Fastfile が自動的に対応するディレクトリを upload 元に解決する。スナップショットを別途取る運用は不要。
+**旧レイアウト (`releases/v$(MARKETING_VERSION)/metadata/` に全項目) も動く。**
+Fastfile は `releases/current/metadata` が在ればそちらを、無ければ従来のバージョンディレクトリを使う。
+リリースノートも `releases/v<version>/release_notes/` が無ければ metadata 配下の `release_notes.txt` を使う。
 
 ## 必須ルール
 
 - **API Key 認証のみ使用**（Apple ID / パスワード認証は禁止）
 - `api_key.json` と `*.p8` は Git で管理する（ポータビリティ重視）
-- `releases/v$(MARKETING_VERSION)/metadata/` を直接編集する（中間ファイルは作らない）
+- `releases/current/metadata/` と `releases/v$(MARKETING_VERSION)/release_notes/` を直接編集する（中間ファイルは作らない）
 - lane 名は下記「標準 lane 一覧」に従う（独自名は禁止）
 - `bundle exec` **不使用**（Bundler は導入しない）
 
@@ -91,24 +97,26 @@ cat project-templates/fastlane/.gitignore >> /path/to/your-app/.gitignore
 ### 6. 初回バージョンのメタデータディレクトリを作成
 
 `fastlane/metadata.template/` と `fastlane/screenshots.template/` がプレースホルダ。
-これを初回リリースの `releases/v$(MARKETING_VERSION)/{metadata,screenshots}/` にコピーする。
+共有メタデータは `releases/current/metadata/`、スクリーンショットは初回リリースの
+`releases/v$(MARKETING_VERSION)/screenshots/` にコピーする。
 
 ```bash
 cd /path/to/your-app
 V=$(grep 'MARKETING_VERSION' project.yml | head -1 | sed 's/.*"\(.*\)"/\1/')
-mkdir -p "releases/v${V}"
-cp -r ../../project-templates/fastlane/metadata.template    "releases/v${V}/metadata"
+mkdir -p "releases/current" "releases/v${V}/release_notes"
+cp -r ../../project-templates/fastlane/metadata.template    "releases/current/metadata"
 cp -r ../../project-templates/fastlane/screenshots.template "releases/v${V}/screenshots"
+mv "releases/current/metadata"/*/release_notes.txt "releases/v${V}/release_notes/" 2>/dev/null || true
 ```
 
-その後、`releases/v${V}/metadata/{en-US,ja}/*.txt` を実値で埋める:
+その後、`releases/current/metadata/{en-US,ja}/*.txt` を実値で埋める:
 
 ```
-releases/v${V}/metadata/en-US/name.txt          # アプリ名（30文字以内）
-releases/v${V}/metadata/en-US/subtitle.txt      # サブタイトル（30文字以内）
-releases/v${V}/metadata/en-US/keywords.txt      # キーワード（100文字以内）
-releases/v${V}/metadata/en-US/description.txt   # アプリ概要（4000文字以内）
-releases/v${V}/metadata/en-US/release_notes.txt # リリースノート（4000文字以内）
+releases/current/metadata/en-US/name.txt          # アプリ名（30文字以内）
+releases/current/metadata/en-US/subtitle.txt      # サブタイトル（30文字以内）
+releases/current/metadata/en-US/keywords.txt      # キーワード（100文字以内）
+releases/current/metadata/en-US/description.txt   # アプリ概要（4000文字以内）
+releases/v${V}/release_notes/en-US.txt            # リリースノート（4000文字以内。バージョン別）
 ```
 
 ## 標準コマンド（Makefile ターゲット）

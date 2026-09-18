@@ -11,9 +11,11 @@
 #   fastlane mac availability_show    -- 配信対象 territory を ASC から取得して表示
 #   fastlane mac availability_apply   -- fastlane/available_territories.json から ASC に反映
 #
-# メタデータ・スクリーンショットの実体は project.yml の MARKETING_VERSION に
-# ひも付いた releases/v$(MARKETING_VERSION)/{metadata,screenshots}/ にある。
-# 編集対象はそのディレクトリだけ。fastlane/metadata, fastlane/screenshots は使わない。
+# メタデータの実体は releases/current/metadata/<locale>/ (共有レイアウト。説明文・キーワード等)、
+# リリースノートは releases/v$(MARKETING_VERSION)/release_notes/<locale>.txt にある。
+# releases/current/metadata が無い app は旧来どおり releases/v$(MARKETING_VERSION)/metadata/
+# を使う (release_metadata_path のコメント参照)。スクリーンショットは
+# releases/v$(MARKETING_VERSION)/screenshots/。fastlane/metadata, fastlane/screenshots は使わない。
 #
 # 配信対象 territory（app-level、version 非依存）は fastlane/available_territories.json
 # が単一マスター。Web 上で territory を変更したら available_territories.json を
@@ -52,15 +54,62 @@ def current_marketing_version
   match[1]
 end
 
+# メタデータの置き場は 2 通りある。
+#
+# - **共有レイアウト (推奨)**: `releases/current/metadata/<locale>/` に説明文・キーワード等を
+#   1 組だけ置き、バージョンごとに変わるリリースノートだけを
+#   `releases/v<version>/release_notes/<locale>.txt` に置く。App Store Connect は説明文等について
+#   「現在の値」しか持たないので、バージョンごとに複製すると古いディレクトリを編集する事故が起きる。
+#   過去に何を出したかは git のタグ・履歴で辿る
+# - **バージョンごとのレイアウト (旧来)**: `releases/v<version>/metadata/<locale>/` に
+#   リリースノートを含む全項目を置く。`releases/current/metadata` が無いときはこちらを使う
+#
+# 共有レイアウトが在ればそちらを優先する (混在時に旧来を黙って使わない)。
 def release_metadata_path
   v = current_marketing_version
+  shared = File.join(project_root, "releases", "current", "metadata")
+  return shared if Dir.exist?(shared)
+
   path = File.join(project_root, "releases", "v#{v}", "metadata")
   unless Dir.exist?(path)
-    raise "Metadata directory not found: releases/v#{v}/metadata\n" \
-          "MARKETING_VERSION=#{v} に対応するメタデータディレクトリが存在しない。\n" \
-          "前バージョンから cp -r releases/vPREV/metadata releases/v#{v}/metadata で初期化してください。"
+    raise "Metadata directory not found: releases/current/metadata または releases/v#{v}/metadata\n" \
+          "共有レイアウトなら releases/current/metadata を、バージョンごとのレイアウトなら\n" \
+          "MARKETING_VERSION=#{v} に対応するディレクトリを用意してください\n" \
+          "(旧来レイアウトの初期化: cp -r releases/vPREV/metadata releases/v#{v}/metadata)。"
   end
   path
+end
+
+# バージョン別のリリースノート (共有レイアウトで使う)。
+#
+# deliver は `options[key] ||= File.read(path)` の順で解決するため、ここで渡した値が
+# metadata_path 配下の release_notes.txt より優先される。ディレクトリが無ければ nil を返し、
+# 旧来レイアウトの metadata_path 配下 release_notes.txt がそのまま使われる。
+def release_notes_by_locale
+  v = current_marketing_version
+  dir = File.join(project_root, "releases", "v#{v}", "release_notes")
+  return nil unless Dir.exist?(dir)
+
+  notes = Dir.glob(File.join(dir, "*.txt")).sort.to_h do |path|
+    [File.basename(path, ".txt"), File.read(path)]
+  end
+  if notes.empty?
+    raise "Release notes not found: releases/v#{v}/release_notes/<locale>.txt\n" \
+          "ディレクトリは在るが .txt が 1 つも無い。そのまま upload すると\n" \
+          "App Store Connect の「このバージョンの新機能」が前バージョンのまま残る。"
+  end
+  notes
+end
+
+# metadata を送る lane が共通で渡す引数 (バージョン別ノートが在れば release_notes を足す)。
+def deliver_metadata_options
+  options = {
+    app_version: current_marketing_version,
+    metadata_path: release_metadata_path
+  }
+  notes = release_notes_by_locale
+  options[:release_notes] = notes if notes
+  options
 end
 
 def release_screenshots_path
@@ -119,8 +168,7 @@ platform :mac do
   desc "メタデータのみアップロード（スクリーンショットなし）"
   lane :metadata do
     deliver(
-      app_version: current_marketing_version,
-      metadata_path: release_metadata_path,
+      **deliver_metadata_options,
       skip_binary_upload: true,
       skip_screenshots: true,
       force: true
@@ -142,8 +190,7 @@ platform :mac do
   desc "メタデータ + スクリーンショットをアップロード"
   lane :upload_metadata do
     deliver(
-      app_version: current_marketing_version,
-      metadata_path: release_metadata_path,
+      **deliver_metadata_options,
       screenshots_path: release_screenshots_path,
       skip_binary_upload: true,
       force: true
@@ -169,8 +216,8 @@ platform :mac do
     pkg_path = options[:pkg] || ENV["PKG_PATH"] || Dir["../build/export/*.pkg"].first
 
     deliver(
+      **deliver_metadata_options,
       pkg: pkg_path,
-      metadata_path: release_metadata_path,
       screenshots_path: release_screenshots_path,
       skip_binary_upload: false,
       submit_for_review: false,
