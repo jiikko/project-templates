@@ -133,7 +133,7 @@ releases/v${V}/release_notes/en-US.txt            # リリースノート（4000
 | `asc-availability-apply` | `fastlane/available_territories.json` を ASC に反映 |
 
 ```bash
-make asc-metadata       # メタデータアップロード（releases/v$(MARKETING_VERSION)/metadata から）
+make asc-metadata       # メタデータアップロード（releases/current/metadata + v$(MARKETING_VERSION)/release_notes から）
 ```
 
 ## 配信対象 territory の管理
@@ -236,14 +236,23 @@ Privacy Policy: https://{{YOUR_DOMAIN}}/privacy.html
 
 ## トラブルシューティング
 
-### `Metadata directory not found: releases/vX.Y.Z/metadata`
+### `Metadata directory not found: releases/current/metadata または releases/vX.Y.Z/metadata`
 
-`project.yml` の `MARKETING_VERSION` に対応するディレクトリが無い。前バージョンから初期化:
+共有レイアウトなら `releases/current/metadata/` を、旧レイアウトなら `MARKETING_VERSION` に
+対応するディレクトリを用意する:
 
 ```bash
+# 共有レイアウト (推奨)
+mkdir -p releases/vCURRENT/release_notes releases/vCURRENT/screenshots
+# 旧レイアウト
 cp -r releases/vPREV/metadata releases/vCURRENT/metadata
 cp -r releases/vPREV/screenshots releases/vCURRENT/screenshots
 ```
+
+### `Release notes not found: releases/vX.Y.Z/release_notes/<locale>.txt`
+
+共有レイアウトで `release_notes/` ディレクトリは在るが `.txt` が無い。そのまま upload すると
+ASC の「このバージョンの新機能」が前バージョンのまま残るので fail-fast する。
 
 ### subtitle が 30 文字を超えている
 
@@ -251,10 +260,10 @@ cp -r releases/vPREV/screenshots releases/vCURRENT/screenshots
 'subtitle' cannot be longer than '30' characters
 ```
 
-→ `releases/v$(MARKETING_VERSION)/metadata/en-US/subtitle.txt` を 30 文字以内に修正。
+→ `releases/current/metadata/en-US/subtitle.txt` を 30 文字以内に修正。
 
 ### メタデータを App Store Connect からダウンロードしたい
 
 ```bash
-fastlane deliver download_metadata --metadata-path releases/v$(MARKETING_VERSION)/metadata
+fastlane deliver download_metadata --metadata-path releases/current/metadata
 ```

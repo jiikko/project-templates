@@ -77,13 +77,15 @@ make bump-marketing V=1.1.0
 make bump-marketing V=1.0.6  # project.yml の MARKETING_VERSION を更新
 ```
 
-> **Fastlane 導入済みの場合:** バージョンディレクトリを直接編集してアップロードする。
-> 編集対象は `releases/v$(MARKETING_VERSION)/{metadata,screenshots}/`。Fastfile が
-> `project.yml` の `MARKETING_VERSION` を読んで動的にパスを解決する。
+> **Fastlane 導入済みの場合:** 説明文等は `releases/current/metadata/<locale>/` を直接編集する
+> (バージョン非依存。ASC は「現在の値」しか持たないので複製しない)。リリースノートは
+> `releases/v$(MARKETING_VERSION)/release_notes/<locale>.txt`、スクリーンショットは
+> `releases/v$(MARKETING_VERSION)/screenshots/`。Fastfile が `project.yml` の
+> `MARKETING_VERSION` を読んで動的にパスを解決する。
 > ```bash
-> # 新バージョン準備時: 前バージョンから初期化
-> cp -r releases/v1.0.5/metadata releases/v1.0.6/metadata
-> cp -r releases/v1.0.5/screenshots releases/v1.0.6/screenshots
+> # 新バージョン準備時
+> mkdir -p releases/v1.0.6/release_notes releases/v1.0.6/screenshots
+> cp -r releases/v1.0.5/screenshots/. releases/v1.0.6/screenshots/
 > make bump-marketing V=1.0.6
 >
 > # releases/v1.0.6/{metadata,screenshots}/ を編集したら:
