@@ -1,94 +1,26 @@
 # Issue追跡
 
-## ファイル命名規則
+**共通規約（ファイル名 `NNN-<type>-<slug>.md`・type 語彙・状態ディレクトリ `next/` `pending/` `waiting/`
+`done/` `epic/<name>/`・`期限:`・`human`・`retro`・本文の書き方）は `~/dotfiles/_claude/issue-rules.md` が正本**で、
+issues/ を持つ repo のセッションに SessionStart hook が注入する。**ここへ共通規約を写さない**
+（写したコピーは更新が伝播せず古いまま残る。dotfiles issue 401）。
 
-番号付きIssueには種類を示すプレフィックスを付与:
+このファイルには、この repo でだけ効く道具・固有ディレクトリ・経緯を書く。
 
-| プレフィックス | 種類 | 説明 | 例 |
-|---------------|------|------|-----|
-| `feat-` | 機能追加 | 新機能、機能拡張 | `001-feat-add-dark-mode.md` |
-| `bug-` | バグ修正 | 不具合、クラッシュ、エラー | `002-bug-crash-on-launch.md` |
-| `refactor-` | リファクタリング | コード品質改善、整理 | `003-refactor-cleanup-viewmodel.md` |
-| `perf-` | パフォーマンス | 速度改善、最適化 | `004-perf-reduce-memory-usage.md` |
-| `ux-` | UX改善 | 操作性、使い勝手の改善 | `005-ux-improve-onboarding.md` |
+## この repo の道具
 
-### その他のルール
+- 命名チェック: `make lint-issues`（Makefile に target がある場合）
+- 採番: `issues/` 配下を全サブディレクトリまで走査し、最大番号 + 1
 
-- `NNN-{prefix}-description.md`: 番号 + プレフィックス + 内容（必須形式）
-- `*.md`: 番号なしIssue（タスクリスト、改善提案、ドキュメント）
-- `done/`: 完了したIssue
-- `pending/`: 着手未定・保留中のIssue
-
-### Lint
-
-```bash
-make lint-issues  # 命名規則チェック
-```
-
-## ディレクトリ構造
-
-```
-issues/
-├── README.md
-├── 001-feat-first-feature.md
-├── 002-bug-some-bug.md
-├── done/
-│   └── 001-feat-completed-feature.md
-└── pending/
-    └── 099-refactor-deferred-topic.md
-```
-
-## 運用
-
-- `issues/` 直下: 現在追跡中のIssue
-- `issues/done/`: 完了したIssue
-- `issues/pending/`: 着手未定・保留中のIssue
-
-- 新規Issueは原則 `issues/` 直下に作成する
-- 完了したら `issues/done/` に移動する
-- 保留にしたものだけ `issues/pending/` に移動する
-
-## Issue索引
+## Issue索引（`INDEX.md` がある場合）
 
 Issue一覧・優先度・ステータスはアプリ固有の `INDEX.md` で管理する。
+**issue を追加・完了・ステータス変更したら `INDEX.md` を必ず更新すること。**
 
-> **新しいissueを追加・完了・ステータス変更したら `INDEX.md` を必ず更新すること。**
-
-`INDEX.md` の運用原則:
-- **純粋なインデックス**: 番号、タイトル、ステータス、優先度のテーブルのみで構成する。
-- **セクション分け**: Open Issues を種類別に整理する。Done 一覧は書かない。
-
-`INDEX.md` には以下を記載する:
-- カテゴリ別の Open Issues 一覧（番号・タイトル・優先度・状態）
-
-## テンプレート
-
-```markdown
-# Issue Title
-
-**作成日**: YYYY-MM-DD
-
-## 概要
-問題や機能の簡潔な説明
-
-## 詳細
-- 詳細な説明
-- 再現手順（バグの場合）
-- 期待される動作
-
-## 対応方針
-実装アプローチの説明
-
-## 関連ファイル
-- `path/to/file.swift`
-
-## 進捗
-- [ ] 調査
-- [ ] 実装
-- [ ] テスト
-- [ ] レビュー
-```
+- **純粋なインデックス**: 番号・タイトル・ステータス・優先度のテーブルだけ。詳細な概要や解説は書かない（トークン節約）
+- Open Issues を種類別に整理する。Done 一覧は書かない
 
 ---
 
-> このファイルは `project-templates` で統合管理されています。直接変更せず、`project-templates/ios/issues/README.md` を変更してください。
+> この雛形は `project-templates/{macos,ios}/issues/README.md` で管理している。repo 固有の節を足してよい
+> （共通規約の変更は dotfiles `_claude/issue-rules.md` へ）。
