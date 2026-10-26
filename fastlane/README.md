@@ -128,7 +128,7 @@ releases/v${V}/release_notes/en-US.txt            # リリースノート（4000
 | `asc-upload` | メタデータ + スクリーンショット |
 | `asc-upload-build` | ビルドのみアップロード（審査提出なし） |
 | `asc-upload-all` | メタデータ + スクショ + ビルド |
-| `asc-submit` | 審査に提出 |
+| `asc-submit` | 審査に提出（メタデータと同じ場所に `submission_information.json` があれば、IDFA・暗号化・コンテンツ権利の回答として渡す） |
 | `asc-availability-show` | ASC の現在の配信対象 territory を表示 |
 | `asc-availability-apply` | `fastlane/available_territories.json` を ASC に反映 |
 

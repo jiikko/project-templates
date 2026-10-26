@@ -21,6 +21,9 @@
 # が単一マスター。Web 上で territory を変更したら available_territories.json を
 # 更新して push し直すのが正規ルート（version-specific ではないため
 # releases/v$(MARKETING_VERSION)/ には置かない）。
+#
+# 審査提出時の質問（IDFA / 暗号化 / コンテンツ権利）の回答は、メタデータと同じ場所の
+# submission_information.json に置けば submit lane が渡す（release_submission_information 参照）。
 
 require 'json'
 require 'base64'
@@ -110,6 +113,18 @@ def deliver_metadata_options
   notes = release_notes_by_locale
   options[:release_notes] = notes if notes
   options
+end
+
+# 審査提出時の質問（IDFA / 暗号化 / コンテンツ権利）の回答。
+#
+# release_metadata_path と同じディレクトリの submission_information.json を読む
+# (共有レイアウトなら releases/current/metadata/、旧来なら releases/v<version>/metadata/)。
+# 無ければ nil を返し、submit lane は回答を渡さない (deliver は ASC に既に入っている回答で提出する)。
+def release_submission_information
+  path = File.join(release_metadata_path, "submission_information.json")
+  return nil unless File.exist?(path)
+
+  JSON.parse(File.read(path)).transform_keys(&:to_sym)
 end
 
 def release_screenshots_path
@@ -227,7 +242,7 @@ platform :mac do
 
   desc "審査に提出"
   lane :submit do
-    deliver(
+    options = {
       app_version: current_marketing_version,
       skip_binary_upload: true,
       skip_screenshots: true,
@@ -235,7 +250,10 @@ platform :mac do
       submit_for_review: true,
       automatic_release: false,
       force: true
-    )
+    }
+    answers = release_submission_information
+    options[:submission_information] = answers if answers
+    deliver(**options)
   end
 
   desc "ASC の現在の配信対象 territory（app-level）を取得して表示"
