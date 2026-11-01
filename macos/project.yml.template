@@ -9,7 +9,7 @@ options:
 
 settings:
   base:
-    SWIFT_VERSION: "6.0"
+    SWIFT_VERSION: "6.4"
     ARCHS: arm64
     ONLY_ACTIVE_ARCH: NO
 
