@@ -25,6 +25,9 @@
 # 審査提出時の質問（IDFA / 暗号化 / コンテンツ権利）の回答は、メタデータと同じ場所の
 # submission_information.json に置けば submit lane が渡す（release_submission_information 参照）。
 
+# ロケールに頼らず UTF-8 で読む。エージェントのシェルは LANG が空のことがあり、そのとき既定の外部文字コードが US-ASCII になり、
+# 日本語を含むファイルを読んだ文字列の正規表現・分割が invalid byte sequence で落ちる (vlc-multi-video-player retro 438)
+Encoding.default_external = Encoding::UTF_8
 require 'json'
 require 'base64'
 
