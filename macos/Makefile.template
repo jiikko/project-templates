@@ -7,7 +7,7 @@ PROFILE_UUID = {{PROFILE_UUID}}
 API_KEY_ID = {{API_KEY_ID}}
 API_ISSUER_ID = 69a6de83-cfef-47e3-e053-5b8c7c11a4d1
 
-.PHONY: help setup dev dev-fg build test lint lint-issues clean archive-mas install-profile bump-build upload-testflight asc-metadata asc-screenshots asc-upload asc-upload-build asc-upload-all asc-submit asc-availability-show asc-availability-apply review review-full review-status review-fetch review-close
+.PHONY: help setup dev dev-fg build test lint lint-issues clean archive-mas install-profile bump-build upload-testflight asc-metadata asc-screenshots asc-upload asc-upload-build asc-upload-all asc-submit asc-availability-show asc-availability-apply review review-full review-status review-fetch review-close trust-swiftpm-plugins
 
 help:
 	@echo "Usage: make [target]"
@@ -43,6 +43,20 @@ help:
 
 setup:
 	xcodegen generate
+	@$(MAKE) --no-print-directory trust-swiftpm-plugins
+
+# Xcode でビルドしたときに出る SwiftLint plugin の「Trust & Enable」を、ピンの revision で先に済ませる。
+# 本体と記録の形の根拠は my-products の bin/trust-swiftpm-plugins。app を単体で clone したときは見つからないので飛ばす
+trust-swiftpm-plugins:
+	@tp=; d="$(CURDIR)"; while [ "$$d" != / ]; do \
+		if [ -x "$$d/bin/trust-swiftpm-plugins" ]; then tp="$$d/bin/trust-swiftpm-plugins"; break; fi; \
+		d="$$(dirname "$$d")"; \
+	done; \
+	if [ -z "$$tp" ]; then \
+		echo "ℹ️  my-products の bin/trust-swiftpm-plugins が無いので SwiftLint plugin の信頼は登録しない (Xcode のビルドで Trust & Enable が出る)"; \
+	else \
+		"$$tp" "$(PROJECT_NAME).xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved" || echo "⚠️  SwiftLint plugin の信頼を登録できなかった (理由は上)。Xcode のビルドで Trust & Enable が出る"; \
+	fi
 
 dev:
 	@mkdir -p ./tmp

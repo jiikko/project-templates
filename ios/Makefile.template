@@ -11,7 +11,7 @@ DERIVED_DATA = ./tmp/DerivedData
 XCODEGEN_STAMP = .xcodegen-stamp
 APP_PATH = $(DERIVED_DATA)/Build/Products/Debug-iphonesimulator/$(PROJECT_NAME).app
 
-.PHONY: help setup dev dev-fg build test lint lint-issues clean archive install-profile bump-build upload-testflight asc-metadata asc-screenshots asc-upload asc-upload-build asc-upload-all asc-submit review review-full review-status review-fetch review-close
+.PHONY: help setup dev dev-fg build test lint lint-issues clean archive install-profile bump-build upload-testflight asc-metadata asc-screenshots asc-upload asc-upload-build asc-upload-all asc-submit review review-full review-status review-fetch review-close trust-swiftpm-plugins
 
 help:
 	@echo "Usage: make [target]"
@@ -57,6 +57,20 @@ setup:
 		echo "Generating Xcode project..."; \
 		xcodegen generate; \
 		echo "$$CURRENT_HASH" > "$(XCODEGEN_STAMP)"; \
+	fi
+	@$(MAKE) --no-print-directory trust-swiftpm-plugins
+
+# Xcode でビルドしたときに出る SwiftLint plugin の「Trust & Enable」を、ピンの revision で先に済ませる。
+# 本体と記録の形の根拠は my-products の bin/trust-swiftpm-plugins。app を単体で clone したときは見つからないので飛ばす
+trust-swiftpm-plugins:
+	@tp=; d="$(CURDIR)"; while [ "$$d" != / ]; do \
+		if [ -x "$$d/bin/trust-swiftpm-plugins" ]; then tp="$$d/bin/trust-swiftpm-plugins"; break; fi; \
+		d="$$(dirname "$$d")"; \
+	done; \
+	if [ -z "$$tp" ]; then \
+		echo "ℹ️  my-products の bin/trust-swiftpm-plugins が無いので SwiftLint plugin の信頼は登録しない (Xcode のビルドで Trust & Enable が出る)"; \
+	else \
+		"$$tp" "$(PROJECT_NAME).xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved" || echo "⚠️  SwiftLint plugin の信頼を登録できなかった (理由は上)。Xcode のビルドで Trust & Enable が出る"; \
 	fi
 
 dev: setup
