@@ -11,7 +11,7 @@ DERIVED_DATA = ./tmp/DerivedData
 XCODEGEN_STAMP = .xcodegen-stamp
 APP_PATH = $(DERIVED_DATA)/Build/Products/Debug-iphonesimulator/$(PROJECT_NAME).app
 
-.PHONY: help setup dev dev-fg build test lint lint-issues clean archive install-profile bump-build upload-testflight asc-metadata asc-screenshots asc-upload asc-upload-build asc-upload-all asc-submit review review-full review-status review-fetch review-close trust-swiftpm-plugins
+.PHONY: help setup dev dev-fg build test lint lint-cdpath lint-issues clean archive install-profile bump-build upload-testflight asc-metadata asc-screenshots asc-upload asc-upload-build asc-upload-all asc-submit review review-full review-status review-fetch review-close trust-swiftpm-plugins
 
 help:
 	@echo "Usage: make [target]"
@@ -115,7 +115,12 @@ test: setup
 		-skipPackagePluginValidation \
 		test 2>&1 | tee ./tmp/test.log
 
-lint: setup
+# $(cd …) でパスを取る前に CDPATH を外していないシェルスクリプトを落とす (my-products issue 025)。本体は dotfiles の bin/check-cdpath-capture
+lint-cdpath:
+	@command -v check-cdpath-capture >/dev/null || { echo "✗ check-cdpath-capture が PATH に無い (dotfiles の bin/ を PATH に置く)" >&2; exit 2; }
+	@check-cdpath-capture
+
+lint: lint-cdpath setup
 	xcodebuild -scheme $(SCHEME) \
 		-destination 'platform=iOS Simulator,name=$(SIMULATOR)' \
 		-skipPackagePluginValidation \

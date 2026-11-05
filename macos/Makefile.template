@@ -7,7 +7,7 @@ PROFILE_UUID = {{PROFILE_UUID}}
 API_KEY_ID = {{API_KEY_ID}}
 API_ISSUER_ID = 69a6de83-cfef-47e3-e053-5b8c7c11a4d1
 
-.PHONY: help setup dev dev-fg build test lint lint-issues clean archive-mas install-profile bump-build upload-testflight asc-metadata asc-screenshots asc-upload asc-upload-build asc-upload-all asc-submit asc-availability-show asc-availability-apply review review-full review-status review-fetch review-close trust-swiftpm-plugins
+.PHONY: help setup dev dev-fg build test lint lint-cdpath lint-issues clean archive-mas install-profile bump-build upload-testflight asc-metadata asc-screenshots asc-upload asc-upload-build asc-upload-all asc-submit asc-availability-show asc-availability-apply review review-full review-status review-fetch review-close trust-swiftpm-plugins
 
 help:
 	@echo "Usage: make [target]"
@@ -86,7 +86,12 @@ test:
 		-skipPackagePluginValidation \
 		test 2>&1 | tee ./tmp/test.log
 
-lint:
+# $(cd …) でパスを取る前に CDPATH を外していないシェルスクリプトを落とす (my-products issue 025)。本体は dotfiles の bin/check-cdpath-capture
+lint-cdpath:
+	@command -v check-cdpath-capture >/dev/null || { echo "✗ check-cdpath-capture が PATH に無い (dotfiles の bin/ を PATH に置く)" >&2; exit 2; }
+	@check-cdpath-capture
+
+lint: lint-cdpath
 	xcodebuild -scheme $(SCHEME) \
 		-destination 'platform=macOS' \
 		-skipPackagePluginValidation \
