@@ -13,6 +13,10 @@
 # ひも付いた releases/v$(MARKETING_VERSION)/{metadata,screenshots}/ にある。
 # 編集対象はそのディレクトリだけ。fastlane/metadata, fastlane/screenshots は使わない。
 
+# ロケールに頼らず UTF-8 で読む。エージェントのシェルは LANG が空のことがあり、そのとき既定の外部文字コードが US-ASCII になり、
+# 日本語を含むファイルを読んだ文字列の正規表現・分割が invalid byte sequence で落ちる (vlc-multi-video-player retro 438)
+Encoding.default_external = Encoding::UTF_8
+
 default_platform(:ios)
 
 # deliver 等の action に渡すパスは **必ず絶対パス** にすること。
