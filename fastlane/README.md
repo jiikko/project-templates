@@ -167,7 +167,10 @@ make asc-availability-apply CONFIRM=1   # ASC に反映し、取り直して JSO
 - 反映は `PATCH /v1/territoryAvailabilities/{id}` で 1 地域ずつ `available` を切り替える
   (旧 `/v1/apps/{id}/availableTerritories` は 404、`POST /v2/appAvailabilities` は既存の設定があると 409 で使えない)
 - 壊れた JSON で配信を止めないよう、空・重複・ASC に無い code は拒否し、配信を止める / 始める地域がどちらかの向きで 6 つ以上なら、計画と同じ件数の許可 (`ALLOW_DISABLE=<件数>` / `ALLOW_ENABLE=<件数>`) を求める。件数が違えば通らないので、シェルの履歴から古い行を打ち直しても、壊れた JSON は反映されない
-- `CONFIRM` / `ALLOW_DISABLE` / `ALLOW_ENABLE` / `FORCE` はコマンド行で渡したときだけ効く (シェルに export したまま残った値では書き込まない)
+- `CONFIRM` / `ALLOW_DISABLE` / `ALLOW_ENABLE` / `FORCE` はコマンド行で渡したときだけ効く (シェルに export したまま残った値では書き込まない)。
+  ただし環境変数の `MAKEFLAGS` に入れた代入は、make がコマンド行の値として扱うので通る (親の make から子へ引き継ぐ形。見分けられない)。`MAKEFLAGS` に入れたまま残さない
+- テンプレートを入れた直後や長く触っていない app では、apply の前に `make asc-availability-pull` で JSON を ASC の今の値に揃える。
+  仮置きの JSON (1 か国だけ等) のまま dry-run すると、ほとんどの国の配信を止める計画と、そのまま打てる `CONFIRM=1 ALLOW_DISABLE=<件数>` の行が出る
 - apply は打った時点の ASC と JSON の差を反映する。dry-run の後に ASC 側で地域が増えると、その地域も止める対象に入る
 - `availableInNewTerritories` (新しい地域にも配信) の設定自体は扱わない (Web UI で変える)。ただし JSON が正本なので、
   Apple が新しい地域を足した後に apply すると、JSON に無いその地域は止まる。apply の前に diff を見て、残すなら JSON に足す
