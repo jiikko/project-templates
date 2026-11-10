@@ -8,7 +8,7 @@
 #   fastlane mac upload_build         -- ビルドのみ（審査提出なし）
 #   fastlane mac upload_all           -- メタデータ + スクショ + ビルド
 #   fastlane mac submit               -- 審査に提出
-#   fastlane mac availability_show    -- 配信対象 territory を ASC から取得して表示
+#   fastlane mac availability_show    -- 配信対象 territory を ASC から取得して表示 (販売できない territory は警告)
 #   fastlane mac availability_apply   -- fastlane/available_territories.json から ASC に反映
 #
 # メタデータの実体は releases/current/metadata/<locale>/ (共有レイアウト。説明文・キーワード等)、
@@ -270,16 +270,25 @@ platform :mac do
     # /v2/appAvailabilities/{id}/territoryAvailabilities を pagination で取得。
     # Apple は relationships endpoint を Spaceship に wrapper しないので raw HTTP。
     # resource id は base64({s: app_id, t: territory_code}) を decode する規約。
+    # `available` は「配信する設定にしたか」だけで、実際に販売できるかは `contentStatuses` に出る
+    # (DSA のトレーダーの申告・フランスの暗号の申告などが済んでいない地域は ["AVAILABLE"] 以外になる)。
     client = Spaceship::ConnectAPI.token ? Spaceship::ConnectAPI : raise("No ASC session")
     url = "v2/appAvailabilities/#{app.id}/territoryAvailabilities?limit=50"
     territory_ids = []
+    not_sellable = []
     loop do
       resp = client.tunes_request_client.get(url)
       body = resp.body
       Array(body["data"]).each do |t|
         next unless t.dig("attributes", "available")
         code = territory_code_from_resource_id(t["id"])
-        territory_ids << code if code
+        unless code
+          UI.important "territory の resource id を decode できなかったので一覧から外した: #{t['id']}"
+          next
+        end
+        territory_ids << code
+        statuses = t.dig("attributes", "contentStatuses")
+        not_sellable << [code, statuses] unless statuses == ["AVAILABLE"]
       end
       next_url = body.dig("links", "next")
       break unless next_url
@@ -291,6 +300,13 @@ platform :mac do
     UI.message JSON.pretty_generate({ "territories" => territory_ids })
     UI.message ""
     UI.message "fastlane/available_territories.json を初期化するには上記 JSON を保存してください。"
+    UI.message ""
+    if not_sellable.empty?
+      UI.success "上記の #{territory_ids.size} territory はすべて販売できる (contentStatuses が [\"AVAILABLE\"])。"
+    else
+      UI.important "配信する設定だが販売できない territory が #{not_sellable.size} 件ある (contentStatuses。nil は ASC が値を返さなかったもの):"
+      not_sellable.sort_by(&:first).each { |code, statuses| UI.important "  #{code}: #{statuses.inspect}" }
+    end
   end
 
   desc "fastlane/available_territories.json を ASC に反映（territory_ids を更新）[WIP]"
