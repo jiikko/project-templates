@@ -409,6 +409,8 @@ platform :mac do
   # 一括の経路は使えない: 旧 /v1/apps/{id}/availableTerritories は削除済み (404)、
   # POST /v2/appAvailabilities は既存の AppAvailability があると 409。
   # Apple の reference の題は「pre-order の territory の変更」だが、request の属性に available を持つ。
+  # 2026-11-10 に公開済みの app (vlc-multi-video-player) で、配信中の JPN へ available: true を送り直して 200 が返り、
+  # 175 地域のどれも値が変わらないことを確かめた。available: false で本当に止まるかは未確認 (止めないと確かめられない)。
   desc "fastlane/available_territories.json を ASC に反映（既定は dry-run。confirm:true で書き込む）"
   lane :availability_apply do |options|
     confirm = options[:confirm].to_s == "true"
