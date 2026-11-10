@@ -7,7 +7,7 @@ PROFILE_UUID = {{PROFILE_UUID}}
 API_KEY_ID = {{API_KEY_ID}}
 API_ISSUER_ID = 69a6de83-cfef-47e3-e053-5b8c7c11a4d1
 
-.PHONY: help setup dev dev-fg build test lint lint-cdpath lint-issues clean archive-mas install-profile bump-build upload-testflight asc-metadata asc-screenshots asc-upload asc-upload-build asc-upload-all asc-submit asc-availability-show asc-availability-apply review review-full review-status review-fetch review-close trust-swiftpm-plugins
+.PHONY: help setup dev dev-fg build test lint lint-cdpath lint-issues clean archive-mas install-profile bump-build upload-testflight asc-metadata asc-screenshots asc-upload asc-upload-build asc-upload-all asc-submit asc-availability-show asc-availability-diff asc-availability-pull asc-availability-apply review review-full review-status review-fetch review-close trust-swiftpm-plugins
 
 help:
 	@echo "Usage: make [target]"
@@ -35,7 +35,9 @@ help:
 	@echo "  asc-upload-all          - メタデータ + スクショ + ビルド"
 	@echo "  asc-submit              - 審査に提出"
 	@echo "  asc-availability-show   - ASC の現在の配信対象 territory を表示"
-	@echo "  asc-availability-apply  - fastlane/available_territories.json を ASC に反映"
+	@echo "  asc-availability-diff   - fastlane/available_territories.json と ASC の差分を表示"
+	@echo "  asc-availability-pull   - ASC の配信対象で fastlane/available_territories.json を書き直す"
+	@echo "  asc-availability-apply  - JSON との差分を表示 (dry-run)。CONFIRM=1 で ASC に反映 (変える地域が多いときは dry-run が示す件数も)"
 	@echo "  ※ asc-* のアップロード元は releases/v\$$(MARKETING_VERSION)/{metadata,screenshots}/"
 	@echo "  ※ availability は app-level で fastlane/available_territories.json が単一マスター"
 	@echo ""
@@ -169,8 +171,21 @@ asc-submit:
 asc-availability-show:
 	fastlane mac availability_show
 
+asc-availability-diff:
+	fastlane mac availability_diff
+
+# 未 commit の編集があると止まる。FORCE=1 で捨てて書き直す
+asc-availability-pull:
+	fastlane mac availability_pull force:$(call asc_cli_flag,FORCE)
+
+# 既定は dry-run (差分を表示するだけ)。CONFIRM=1 で ASC に書き込む。配信を止める / 始める地域が上限を超えるときは
+# dry-run が示す ALLOW_DISABLE=<件数> / ALLOW_ENABLE=<件数> も要る (計画の件数と一致したときだけ通る)
 asc-availability-apply:
-	fastlane mac availability_apply
+	fastlane mac availability_apply confirm:$(call asc_cli_flag,CONFIRM) allow_disable:$(call asc_cli_count,ALLOW_DISABLE) allow_enable:$(call asc_cli_count,ALLOW_ENABLE)
+
+# コマンド行で渡した値だけを受ける。シェルに export したまま残った値で ASC に書き込まないよう、環境変数からは受けない
+asc_cli_flag = $(if $(and $(filter command line,$(origin $(1))),$(filter 1,$($(1)))),true,false)
+asc_cli_count = $(or $(and $(filter command line,$(origin $(1))),$(firstword $($(1)))),0)
 
 # Codex レビュー（差分）
 # 使い方: make review              (未pushコミットの差分レビュー)

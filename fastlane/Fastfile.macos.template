@@ -9,7 +9,9 @@
 #   fastlane mac upload_all           -- メタデータ + スクショ + ビルド
 #   fastlane mac submit               -- 審査に提出
 #   fastlane mac availability_show    -- 配信対象 territory を ASC から取得して表示 (販売できない territory は警告)
-#   fastlane mac availability_apply   -- fastlane/available_territories.json から ASC に反映
+#   fastlane mac availability_diff    -- fastlane/available_territories.json と ASC の差分を表示 (書き込まない)
+#   fastlane mac availability_pull    -- ASC の配信対象で fastlane/available_territories.json を書き直す
+#   fastlane mac availability_apply   -- available_territories.json との差分を表示 (dry-run)。confirm:true で ASC に反映
 #
 # メタデータの実体は releases/current/metadata/<locale>/ (共有レイアウト。説明文・キーワード等)、
 # リリースノートは releases/v$(MARKETING_VERSION)/release_notes/<locale>.txt にある。
@@ -18,9 +20,9 @@
 # releases/v$(MARKETING_VERSION)/screenshots/。fastlane/metadata, fastlane/screenshots は使わない。
 #
 # 配信対象 territory（app-level、version 非依存）は fastlane/available_territories.json
-# が単一マスター。Web 上で territory を変更したら available_territories.json を
-# 更新して push し直すのが正規ルート（version-specific ではないため
-# releases/v$(MARKETING_VERSION)/ には置かない）。
+# が単一マスター（version-specific ではないため releases/v$(MARKETING_VERSION)/ には置かない）。
+# repo で変えるなら JSON を編集 → availability_apply で差分を見る → confirm:true で反映。
+# Web 上で変えたなら availability_pull で JSON を書き直して commit する。
 #
 # 審査提出時の質問（IDFA / 暗号化 / コンテンツ権利）の回答は、メタデータと同じ場所の
 # submission_information.json に置けば submit lane が渡す（release_submission_information 参照）。
@@ -30,6 +32,7 @@
 Encoding.default_external = Encoding::UTF_8
 require 'json'
 require 'base64'
+require 'open3'
 
 default_platform(:mac)
 
@@ -158,6 +161,9 @@ def availability_path
   "./available_territories.json"
 end
 
+# availability_apply が件数の許可 (allow_disable / allow_enable) なしで配信を止めてよい / 始めてよい territory の数 (向きごと)
+AVAILABILITY_MAX_CHANGES_WITHOUT_ALLOW = 5
+
 # Apple ASC API の territoryAvailability resource id は
 # urlsafe_base64({"s":"<app_id>","t":"<territory_code>"}) という規約。
 # これを decode して territory code (ISO 3166 alpha-3) を取り出す。
@@ -167,6 +173,94 @@ def territory_code_from_resource_id(resource_id)
   parsed["t"]
 rescue StandardError
   nil
+end
+
+# ASC の territoryAvailabilities を全件取る (/v2/appAvailabilities/{id}/territoryAvailabilities を pagination)。
+# Apple は relationships endpoint を Spaceship に wrapper しないので raw HTTP。
+# 返り値は territory code => { id:, available:, content_statuses: }。
+# `available` は「配信する設定にしたか」だけで、実際に販売できるかは `content_statuses` に出る
+# (DSA のトレーダーの申告・フランスの暗号の申告などが済んでいない地域は ["AVAILABLE"] 以外になる)。
+def fetch_territory_availabilities(app)
+  client = Spaceship::ConnectAPI.token ? Spaceship::ConnectAPI : raise("No ASC session")
+  url = "v2/appAvailabilities/#{app.id}/territoryAvailabilities?limit=50"
+  result = {}
+  loop do
+    body = client.tunes_request_client.get(url).body
+    Array(body["data"]).each do |t|
+      code = territory_code_from_resource_id(t["id"])
+      # 外して続けると、その地域が差分にも照合にも出ず「一致した」と誤って出るので止める
+      UI.user_error!("territory の resource id を decode できなかった (規約が変わった?): #{t['id']}") unless code
+      result[code] = {
+        id: t["id"],
+        available: t.dig("attributes", "available") == true,
+        content_statuses: t.dig("attributes", "contentStatuses")
+      }
+    end
+    next_url = body.dig("links", "next")
+    break unless next_url
+    url = next_url.sub(%r{^https?://[^/]+/}, "")
+  end
+  UI.user_error!("ASC から territory を 1 件も取れなかった (app id #{app.id})") if result.empty?
+  result
+end
+
+def find_app_from_appfile
+  bundle_id = app_bundle_id_from_appfile
+  app = Spaceship::ConnectAPI::App.find(bundle_id)
+  UI.user_error!("App not found for bundle id #{bundle_id}") unless app
+  app
+end
+
+def available_territory_codes(asc)
+  asc.select { |_, v| v[:available] }.keys.sort
+end
+
+# fastlane/available_territories.json (正本) を読む。壊れた JSON で全地域の配信を止めないよう、
+# 空・重複・文字列以外は拒否する。
+def read_available_territories_master
+  path = availability_path
+  UI.user_error!("#{path} が無い。fastlane mac availability_pull で ASC の今の設定から作る") unless File.exist?(path)
+  data = JSON.parse(File.read(path))
+  list = data["territories"]
+  UI.user_error!("#{path} の territories が文字列の配列でない") unless list.is_a?(Array) && list.all? { |c| c.is_a?(String) }
+  UI.user_error!("#{path} の territories が空 (全地域の配信を止める指定は受け付けない)。初めてなら fastlane mac availability_pull で ASC の今の設定から作る") if list.empty?
+  dups = list.tally.select { |_, n| n > 1 }.keys
+  UI.user_error!("#{path} の territories に重複がある: #{dups.join(', ')}") unless dups.empty?
+  [data, list]
+end
+
+# JSON (正本) と ASC の差。unknown は ASC の territory の一覧に無い code (綴りの誤りなど)。
+def territory_diff(master, asc)
+  unknown = (master - asc.keys).sort
+  {
+    unknown: unknown,
+    to_enable: (master - unknown).reject { |c| asc[c][:available] }.sort,
+    to_disable: available_territory_codes(asc) - master
+  }
+end
+
+def print_territory_diff(diff, master_size, asc)
+  UI.message "JSON: #{master_size} territory / ASC で配信する設定: #{available_territory_codes(asc).size} territory"
+  if diff[:unknown].any?
+    UI.error "ASC に存在しない territory code が JSON にある: #{diff[:unknown].join(', ')}"
+  end
+  if diff[:to_enable].empty? && diff[:to_disable].empty?
+    UI.success "JSON と ASC の配信対象は一致している。"
+    return
+  end
+  UI.important "+ JSON にあるが ASC で配信していない (apply で配信を始める): #{diff[:to_enable].join(', ')}" if diff[:to_enable].any?
+  UI.important "- ASC で配信しているが JSON に無い (apply で配信を止める): #{diff[:to_disable].join(', ')}" if diff[:to_disable].any?
+end
+
+def warn_not_sellable(asc)
+  available = available_territory_codes(asc)
+  not_sellable = available.reject { |c| asc[c][:content_statuses] == ["AVAILABLE"] }
+  if not_sellable.empty?
+    UI.success "配信する設定の #{available.size} territory はすべて販売できる (contentStatuses が [\"AVAILABLE\"])。"
+  else
+    UI.important "配信する設定だが販売できない territory が #{not_sellable.size} 件ある (contentStatuses。nil は ASC が値を返さなかったもの):"
+    not_sellable.each { |c| UI.important "  #{c}: #{asc[c][:content_statuses].inspect}" }
+  end
 end
 
 # Spaceship::ConnectAPI のグローバルセッションを設定する。
@@ -262,72 +356,120 @@ platform :mac do
   desc "ASC の現在の配信対象 territory（app-level）を取得して表示"
   lane :availability_show do
     establish_asc_session
+    asc = fetch_territory_availabilities(find_app_from_appfile)
+    codes = available_territory_codes(asc)
 
-    bundle_id = app_bundle_id_from_appfile
-    app = Spaceship::ConnectAPI::App.find(bundle_id)
-    UI.user_error!("App not found for bundle id #{bundle_id}") unless app
-
-    # /v2/appAvailabilities/{id}/territoryAvailabilities を pagination で取得。
-    # Apple は relationships endpoint を Spaceship に wrapper しないので raw HTTP。
-    # resource id は base64({s: app_id, t: territory_code}) を decode する規約。
-    # `available` は「配信する設定にしたか」だけで、実際に販売できるかは `contentStatuses` に出る
-    # (DSA のトレーダーの申告・フランスの暗号の申告などが済んでいない地域は ["AVAILABLE"] 以外になる)。
-    client = Spaceship::ConnectAPI.token ? Spaceship::ConnectAPI : raise("No ASC session")
-    url = "v2/appAvailabilities/#{app.id}/territoryAvailabilities?limit=50"
-    territory_ids = []
-    not_sellable = []
-    loop do
-      resp = client.tunes_request_client.get(url)
-      body = resp.body
-      Array(body["data"]).each do |t|
-        next unless t.dig("attributes", "available")
-        code = territory_code_from_resource_id(t["id"])
-        unless code
-          UI.important "territory の resource id を decode できなかったので一覧から外した: #{t['id']}"
-          next
-        end
-        territory_ids << code
-        statuses = t.dig("attributes", "contentStatuses")
-        not_sellable << [code, statuses] unless statuses == ["AVAILABLE"]
-      end
-      next_url = body.dig("links", "next")
-      break unless next_url
-      url = next_url.sub(%r{^https?://[^/]+/}, "")
-    end
-    territory_ids.sort!
-
-    UI.message "Currently available in #{territory_ids.size} territories:"
-    UI.message JSON.pretty_generate({ "territories" => territory_ids })
+    UI.message "Currently available in #{codes.size} territories:"
+    UI.message JSON.pretty_generate({ "territories" => codes })
     UI.message ""
-    UI.message "fastlane/available_territories.json を初期化するには上記 JSON を保存してください。"
-    UI.message ""
-    if not_sellable.empty?
-      UI.success "上記の #{territory_ids.size} territory はすべて販売できる (contentStatuses が [\"AVAILABLE\"])。"
-    else
-      UI.important "配信する設定だが販売できない territory が #{not_sellable.size} 件ある (contentStatuses。nil は ASC が値を返さなかったもの):"
-      not_sellable.sort_by(&:first).each { |code, statuses| UI.important "  #{code}: #{statuses.inspect}" }
-    end
+    warn_not_sellable(asc)
   end
 
-  desc "fastlane/available_territories.json を ASC に反映（territory_ids を更新）[WIP]"
-  lane :availability_apply do
-    # Apple ASC API の AppAvailability v2 は仕様変更が複数回入っており、
-    # 単純な territory_ids のリスト patch では受け付けない:
-    #   - 旧 Spaceship App#update(territory_ids:) → /v1/apps/{id}/availableTerritories
-    #     関係が削除済み（404）
-    #   - POST /v2/appAvailabilities → 既存 AppAvailability があるため 409
-    #   - PATCH /v2/appAvailabilities/{id} は Apple サンプルが乏しく、
-    #     全 territory resource を included に展開する必要があり仕様の
-    #     詰め切りが必要
-    #
-    # 当面は availability_show で現状取得 + Web UI（App Store Connect）で
-    # 配信対象を編集する運用を推奨。ローカル fastlane/available_territories.json は
-    # 「現状の単一マスター」として保持し、apply 実装は spaceship 側の
-    # メンテナンス追従を待つ。
-    UI.user_error!(
-      "availability_apply は WIP（Apple ASC API 仕様変更により未実装）。\n" \
-      "現状: make asc-availability-show で取得 → Web UI で編集 →\n" \
-      "      取得値を fastlane/available_territories.json に再保存して push、の運用。"
-    )
+  desc "fastlane/available_territories.json と ASC の配信対象の差分を表示（書き込まない）"
+  lane :availability_diff do
+    establish_asc_session
+    _, master = read_available_territories_master
+    asc = fetch_territory_availabilities(find_app_from_appfile)
+    print_territory_diff(territory_diff(master, asc), master.size, asc)
+    warn_not_sellable(asc)
+  end
+
+  desc "ASC の配信対象で fastlane/available_territories.json を書き直す（ASC は変えない。未 commit の編集があれば force:true が要る）"
+  lane :availability_pull do |options|
+    path = availability_path
+    force = options[:force].to_s == "true"
+    # apply する前の手の編集を黙って消さない (未 commit なら git でも戻せない)。確かめられないときも止める
+    unless force
+      out, err, st = Open3.capture3("git", "status", "--porcelain", "--untracked-files=all", "--", path)
+      UI.user_error!("git で #{path} の未 commit の編集を確かめられなかった (#{err.strip})。書き直してよいなら force:true を付ける") unless st.success?
+      UI.user_error!("#{path} に未 commit の編集がある (未追跡を含む)。apply で反映するか commit してから打つ。捨てて書き直すなら force:true を付ける") unless out.strip.empty?
+    end
+    establish_asc_session
+    asc = fetch_territory_availabilities(find_app_from_appfile)
+    data = begin
+      File.exist?(path) ? JSON.parse(File.read(path)) : {}
+    rescue JSON::ParserError => e
+      UI.user_error!("#{path} を JSON として読めない (#{e.message})。捨てて書き直すなら force:true を付ける") unless force
+      {}
+    end
+    unless data.is_a?(Hash)
+      UI.user_error!("#{path} の最上位がオブジェクトでない。捨てて書き直すなら force:true を付ける") unless force
+      data = {}
+    end
+    data["_comment"] ||= "App Store の配信対象 territory（ISO 3166 alpha-3）の単一マスター。" \
+                         "make asc-availability-diff で ASC との差分を見る → make asc-availability-apply CONFIRM=1 で反映。" \
+                         "Web で変えたら make asc-availability-pull で書き直す。app-level 設定なので version 非依存。"
+    data["territories"] = available_territory_codes(asc)
+    File.write(path, JSON.pretty_generate(data) + "\n")
+    UI.success "#{File.expand_path(path)} を ASC の #{data['territories'].size} territory で書き直した。git diff で差分を見る。"
+    warn_not_sellable(asc)
+  end
+
+  # PATCH /v1/territoryAvailabilities/{id} で 1 地域ずつ `available` を切り替える。
+  # 一括の経路は使えない: 旧 /v1/apps/{id}/availableTerritories は削除済み (404)、
+  # POST /v2/appAvailabilities は既存の AppAvailability があると 409。
+  # Apple の reference の題は「pre-order の territory の変更」だが、request の属性に available を持つ。
+  desc "fastlane/available_territories.json を ASC に反映（既定は dry-run。confirm:true で書き込む）"
+  lane :availability_apply do |options|
+    confirm = options[:confirm].to_s == "true"
+    # 許可は真偽値でなく件数で受ける。シェルの履歴から同じ行を打ち直しても、計画の件数が違えば通らない
+    allowed = { disable: options[:allow_disable], enable: options[:allow_enable] }.transform_values do |v|
+      v.nil? ? 0 : (v.to_s =~ /\A\d+\z/ ? v.to_s.to_i : UI.user_error!("ALLOW_DISABLE / ALLOW_ENABLE は件数 (0 以上の整数) で渡す: #{v.inspect}"))
+    end
+    establish_asc_session
+    app = find_app_from_appfile
+    _, master = read_available_territories_master
+    asc = fetch_territory_availabilities(app)
+    diff = territory_diff(master, asc)
+    print_territory_diff(diff, master.size, asc)
+    UI.user_error!("ASC に存在しない territory code を JSON から直してから実行する") if diff[:unknown].any?
+
+    changes = diff[:to_enable].map { |c| [c, true] } + diff[:to_disable].map { |c| [c, false] }
+    next if changes.empty?
+
+    # 壊れた JSON (消しすぎ・別の app の JSON) をそのまま反映すると、多くの国で一度に配信が止まる / 意図して止めていた国
+    # (暗号の申告が要るフランスなど) で始まる。どちらの向きも上限を超えたら、計画と同じ件数の許可を求める
+    over = []   # 上限を超える向き: [説明, "VAR=件数", 許可が件数と一致したか]
+    { disable: ["止める", diff[:to_disable], "ALLOW_DISABLE"], enable: ["始める", diff[:to_enable], "ALLOW_ENABLE"] }.each do |dir, (verb, codes, var)|
+      next if codes.size <= AVAILABILITY_MAX_CHANGES_WITHOUT_ALLOW
+      over << ["#{codes.size} territory の配信を#{verb}", "#{var}=#{codes.size}", allowed[dir] == codes.size]
+    end
+    command = (["make asc-availability-apply CONFIRM=1"] + over.map { |o| o[1] }).join(" ")
+
+    unless confirm
+      note = over.empty? ? "" : "許可なしの上限 #{AVAILABILITY_MAX_CHANGES_WITHOUT_ALLOW} を超える計画: #{over.map(&:first).join(' / ')}。JSON を確かめ、"
+      UI.important "dry-run: ASC は変えていない。#{note}上の差分を反映するなら #{command} を打つ。"
+      next
+    end
+    unless over.all? { |o| o[2] }
+      UI.user_error!("許可なしの上限 #{AVAILABILITY_MAX_CHANGES_WITHOUT_ALLOW} を超える計画: #{over.map(&:first).join(' / ')}。" \
+                     "まず dry-run (make asc-availability-apply) で計画を見て、意図どおりなら #{command} を打つ")
+    end
+
+    failures = []
+    changes.each do |code, available|
+      id = asc[code][:id]
+      begin
+        Spaceship::ConnectAPI.tunes_request_client.patch(
+          "v1/territoryAvailabilities/#{id}",
+          { data: { type: "territoryAvailabilities", id: id, attributes: { available: available } } }
+        )
+        UI.message "#{code}: available=#{available} にした"
+      rescue StandardError => e
+        failures << code
+        UI.error "#{code}: available=#{available} にできなかった: #{e.message}"
+      end
+    end
+
+    # 書き込みの応答だけで成功とせず、取り直して JSON と一致するかを見る
+    after = fetch_territory_availabilities(app)
+    remaining = territory_diff(master, after)
+    print_territory_diff(remaining, master.size, after)
+    if failures.any? || remaining[:unknown].any? || remaining[:to_enable].any? || remaining[:to_disable].any?
+      failed = failures.empty? ? "PATCH の失敗は無いが ASC の値が JSON と合わない" : "PATCH に失敗: #{failures.join(', ')}"
+      UI.user_error!("反映しきれなかった (#{failed})。上の差分を見て打ち直す")
+    end
+    UI.success "#{changes.size} territory を反映し、ASC が JSON と一致したことを確かめた。"
+    warn_not_sellable(after)
   end
 end

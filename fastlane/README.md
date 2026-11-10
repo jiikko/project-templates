@@ -130,7 +130,9 @@ releases/v${V}/release_notes/en-US.txt            # リリースノート（4000
 | `asc-upload-all` | メタデータ + スクショ + ビルド |
 | `asc-submit` | 審査に提出（メタデータと同じ場所に `submission_information.json` があれば、IDFA・暗号化・コンテンツ権利の回答として渡す） |
 | `asc-availability-show` | ASC の現在の配信対象 territory を表示し、配信する設定だが販売できない territory (`contentStatuses` が `["AVAILABLE"]` 以外。DSA・暗号の申告など) があれば警告する |
-| `asc-availability-apply` | `fastlane/available_territories.json` を ASC に反映 |
+| `asc-availability-diff` | `fastlane/available_territories.json` と ASC の配信対象の差分を表示（書き込まない） |
+| `asc-availability-pull` | ASC の配信対象で `fastlane/available_territories.json` を書き直す（ASC は変えない。未 commit の編集があれば `FORCE=1` が要る） |
+| `asc-availability-apply` | JSON との差分を表示する dry-run。`CONFIRM=1` で ASC に反映。配信を止める / 始める地域が 6 つ以上なら、dry-run が示す `ALLOW_DISABLE=<件数>` / `ALLOW_ENABLE=<件数>` も要る |
 
 ```bash
 make asc-metadata       # メタデータアップロード（releases/current/metadata + v$(MARKETING_VERSION)/release_notes から）
@@ -144,35 +146,32 @@ App Store の配信国/地域（territory）は **app-level 設定**で version 
 
 ```json
 {
-  "_comment": "ISO 3166 alpha-3。fastlane mac availability_show で現状取得。",
+  "_comment": "ISO 3166 alpha-3。make asc-availability-pull で現状取得。",
   "territories": ["JPN", "USA", "GBR"]
 }
 ```
 
-**運用フロー（show は実装済み、apply は WIP）:**
+**運用フロー:**
 
 ```bash
-# 現状を取得
-make asc-availability-show
-# → コピペで fastlane/available_territories.json を作成 / 更新
+# 初めて / Web UI で変えた後: ASC の今の設定で JSON を書き直し、git diff で差分を見て commit
+make asc-availability-pull              # 未 commit の編集があると止まる (FORCE=1 で捨てて書き直す)
 
-# JSON を編集（territory 追加 or 削除）→ Web UI で同じ変更を適用
+# repo で変える: JSON を編集 → 差分を確かめる → 反映
 $EDITOR fastlane/available_territories.json
-# 当面は ASC Web UI で territory を編集する（apply は未実装）
+make asc-availability-diff              # 書き込まない
+make asc-availability-apply             # dry-run (反映する予定を表示するだけ)
+make asc-availability-apply CONFIRM=1   # ASC に反映し、取り直して JSON と一致したかを確かめる
 ```
 
-Web 上で territory を変更したら、`asc-availability-show` で取り直して
-`available_territories.json` を更新 → push し直すのが正規ルート（メタデータと同じ方針）。
-
-**`availability_apply` は WIP（未実装）:**
-- Apple ASC API の AppAvailability v2 は仕様変更が複数回入っており、
-  Spaceship 側のメンテナンスが追いついていない
-- 旧 `App#update(territory_ids:)` は `/v1/apps/{id}/availableTerritories`
-  relationship を削除済みで 404
-- 新 `POST /v2/appAvailabilities` は既存 AppAvailability があると 409
-- `PATCH /v2/appAvailabilities/{id}` は Apple サンプルが乏しく、全
-  territory resource を included に展開する必要があり要詰め切り
-- 当面は **show のみ + Web UI で編集** の運用
+- 反映は `PATCH /v1/territoryAvailabilities/{id}` で 1 地域ずつ `available` を切り替える
+  (旧 `/v1/apps/{id}/availableTerritories` は 404、`POST /v2/appAvailabilities` は既存の設定があると 409 で使えない)
+- 壊れた JSON で配信を止めないよう、空・重複・ASC に無い code は拒否し、配信を止める / 始める地域がどちらかの向きで 6 つ以上なら、計画と同じ件数の許可 (`ALLOW_DISABLE=<件数>` / `ALLOW_ENABLE=<件数>`) を求める。件数が違えば通らないので、シェルの履歴から古い行を打ち直しても、壊れた JSON は反映されない
+- `CONFIRM` / `ALLOW_DISABLE` / `ALLOW_ENABLE` / `FORCE` はコマンド行で渡したときだけ効く (シェルに export したまま残った値では書き込まない)
+- apply は打った時点の ASC と JSON の差を反映する。dry-run の後に ASC 側で地域が増えると、その地域も止める対象に入る
+- `availableInNewTerritories` (新しい地域にも配信) の設定自体は扱わない (Web UI で変える)。ただし JSON が正本なので、
+  Apple が新しい地域を足した後に apply すると、JSON に無いその地域は止まる。apply の前に diff を見て、残すなら JSON に足す
+- 配信する設定でも、DSA・暗号の申告などで販売できない地域は `contentStatuses` が `["AVAILABLE"]` 以外になる。show / diff / pull が警告する
 
 ## ディレクトリ構造（プロジェクトルートでの最終形）
 
