@@ -227,6 +227,20 @@ Terms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/st
 Privacy Policy: https://{{YOUR_DOMAIN}}/privacy.html
 ```
 
+## 審査の添付ファイル (App Review に関する情報)
+
+版の「App Review に関する情報」の添付 (審査の担当者だけが見る説明動画など) を使う app は、
+`releases/current/review_attachment.txt` に、添付するファイルのパス (project のルートからの相対) を 1 行で書く。
+
+```
+releases/current/review_attachments/demo.mp4
+```
+
+- 🚨 deliver はメタデータを送るとき、添付を渡さないと **App Store Connect に既にある添付を全部消す** (fastlane 2.238.0 で確認)。
+  `metadata` / `upload_metadata` / `upload_all` の lane は `review_attachment_options` で、この指定が在れば毎回そのファイルを添付し直す
+- 指定が無い app は今までどおり添付を渡さない (既にある添付は消える。lane がその旨を出す)。Web で手で添付しても、次にメタデータを送ると消える
+- 指定したファイルが無いと lane は止まる (黙って添付を消さない)。添付をやめるなら `review_attachment.txt` を消す
+
 ## App Store Connect API Key の作成
 
 1. [App Store Connect API](https://appstoreconnect.apple.com/access/integrations/api) でキーを生成

@@ -73,12 +73,40 @@ def release_screenshots_path
   path
 end
 
+# 審査の添付ファイル (版の「App Review に関する情報」の添付。審査の担当者だけが見る。ストアには出ない)。
+#
+# deliver はメタデータを送るとき、app_review_attachment_file を渡さないと、App Store Connect に既にある添付を全部消す
+# (fastlane 2.238.0 の deliver/lib/deliver/upload_metadata.rb の review_attachment_file)。添付を上げた後に
+# メタデータを送り直して、添付が黙って消えた (vlc-multi-video-player issue 514。2026-11-10)。
+#
+# 添付を使う app は releases/current/review_attachment.txt に、添付するファイルのパス (project のルートからの相対) を 1 行で書く。
+# 書いてあれば、メタデータを送るたびにそのファイルを添付し直す (deliver が前の添付を消してから上げる)。
+# 書いてあるファイルが無ければ止める (黙って添付を消さない)。review_attachment.txt が無い app は今までどおり添付を渡さない
+# (既にある添付は deliver が消すので、その旨を出す)。
+def review_attachment_options
+  pointer = File.join(project_root, "releases", "current", "review_attachment.txt")
+  unless File.exist?(pointer)
+    UI.important("releases/current/review_attachment.txt が無いので、審査の添付は送らない (App Store Connect に既にある添付は deliver が消す)")
+    return {}
+  end
+
+  relative = File.read(pointer).strip
+  path = File.expand_path(relative, project_root)
+  if relative.empty? || !File.file?(path)
+    raise "Review attachment not found: #{relative.empty? ? '(空)' : relative}\n" \
+          "releases/current/review_attachment.txt が指すファイルが無い。添付を使わないなら review_attachment.txt を消す。"
+  end
+  UI.message("審査の添付: #{relative}")
+  { app_review_attachment_file: path }
+end
+
 platform :ios do
   desc "メタデータのみアップロード（スクリーンショットなし）"
   lane :metadata do
     deliver(
       app_version: current_marketing_version,
       metadata_path: release_metadata_path,
+      **review_attachment_options,
       skip_binary_upload: true,
       skip_screenshots: true,
       force: true
@@ -102,6 +130,7 @@ platform :ios do
     deliver(
       app_version: current_marketing_version,
       metadata_path: release_metadata_path,
+      **review_attachment_options,
       screenshots_path: release_screenshots_path,
       skip_binary_upload: true,
       force: true
@@ -129,6 +158,7 @@ platform :ios do
     deliver(
       ipa: ipa_path,
       metadata_path: release_metadata_path,
+      **review_attachment_options,
       screenshots_path: release_screenshots_path,
       skip_binary_upload: false,
       submit_for_review: false,
