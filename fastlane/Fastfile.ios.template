@@ -73,6 +73,19 @@ def release_screenshots_path
   path
 end
 
+# upload_build / upload_all の ipa の既定 (pkg: / IPA_PATH を渡さなかったとき)。project のルートの build/export/*.ipa の絶対パス。
+#
+# lane の中の Ruby は fastlane/ の中で動くが、deliver などの action は project のルートへ移ってから ipa が在るかを確かめる
+# (fastlane 2.238.0 の fastlane/lib/fastlane/runner.rb の execute_action・deliver/lib/deliver/options.rb の ipa の verify_block)。
+# 以前の既定は fastlane/ の中から見た相対パス ("../build/...") で、deliver はそれをルートから読んで 1 つ上の階層を探したので、
+# 正しい場所に ipa が在っても「Could not find ipa file」で止まった (1 つ上にたまたま在れば別の ipa を上げた)。2026-11-10 に実験で確かめた
+def default_ipa_path
+  dir = File.join(project_root, "build", "export")
+  # base: に渡して glob するのはファイル名だけにする (project_root に [ などの glob 記号があっても誤解釈しない)
+  name = Dir.glob("*.ipa", base: dir).first
+  name && File.join(dir, name)
+end
+
 # 審査の添付ファイル (版の「App Review に関する情報」の添付。審査の担当者だけが見る。ストアには出ない)。
 #
 # deliver はメタデータを送るとき、app_review_attachment_file を渡さないと、App Store Connect に既にある添付を全部消す
@@ -139,7 +152,7 @@ platform :ios do
 
   desc "ビルドをアップロード（審査には提出しない）"
   lane :upload_build do |options|
-    ipa_path = options[:ipa] || ENV["IPA_PATH"] || "../build/{{APP_NAME}}.ipa"
+    ipa_path = options[:ipa] || ENV["IPA_PATH"] || default_ipa_path
 
     deliver(
       ipa: ipa_path,
@@ -153,7 +166,7 @@ platform :ios do
 
   desc "全てアップロード（メタデータ + スクショ + ビルド）"
   lane :upload_all do |options|
-    ipa_path = options[:ipa] || ENV["IPA_PATH"] || "../build/{{APP_NAME}}.ipa"
+    ipa_path = options[:ipa] || ENV["IPA_PATH"] || default_ipa_path
 
     deliver(
       ipa: ipa_path,

@@ -177,6 +177,19 @@ def release_screenshots_path
   path
 end
 
+# upload_build / upload_all の pkg の既定 (pkg: / PKG_PATH を渡さなかったとき)。project のルートの build/export/*.pkg の絶対パス。
+#
+# lane の中の Ruby は fastlane/ の中で動くが、deliver などの action は project のルートへ移ってから pkg が在るかを確かめる
+# (fastlane 2.238.0 の fastlane/lib/fastlane/runner.rb の execute_action・deliver/lib/deliver/options.rb の pkg の verify_block)。
+# 以前の既定は fastlane/ の中から見た相対パス ("../build/...") で、deliver はそれをルートから読んで 1 つ上の階層を探したので、
+# 正しい場所に pkg が在っても「Could not find pkg file」で止まった (1 つ上にたまたま在れば別の pkg を上げた)。2026-11-10 に実験で確かめた
+def default_pkg_path
+  dir = File.join(project_root, "build", "export")
+  # base: に渡して glob するのはファイル名だけにする (project_root に [ などの glob 記号があっても誤解釈しない)
+  name = Dir.glob("*.pkg", base: dir).first
+  name && File.join(dir, name)
+end
+
 def app_bundle_id_from_appfile
   # fastlane は実行時に fastlane/ ディレクトリへ chdir するため Appfile は ./Appfile
   appfile = File.read("./Appfile")
@@ -339,7 +352,7 @@ platform :mac do
 
   desc "ビルドをアップロード（審査には提出しない）"
   lane :upload_build do |options|
-    pkg_path = options[:pkg] || ENV["PKG_PATH"] || Dir["../build/export/*.pkg"].first
+    pkg_path = options[:pkg] || ENV["PKG_PATH"] || default_pkg_path
 
     deliver(
       pkg: pkg_path,
@@ -353,7 +366,7 @@ platform :mac do
 
   desc "全てアップロード（メタデータ + スクショ + ビルド）"
   lane :upload_all do |options|
-    pkg_path = options[:pkg] || ENV["PKG_PATH"] || Dir["../build/export/*.pkg"].first
+    pkg_path = options[:pkg] || ENV["PKG_PATH"] || default_pkg_path
 
     deliver(
       **deliver_metadata_options,
