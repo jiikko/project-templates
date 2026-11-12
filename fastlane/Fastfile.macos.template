@@ -12,15 +12,17 @@
 #   fastlane mac availability_diff    -- fastlane/available_territories.json と ASC の差分を表示 (書き込まない)
 #   fastlane mac availability_pull    -- ASC の配信対象で fastlane/available_territories.json を書き直す
 #   fastlane mac availability_apply   -- available_territories.json との差分を表示 (dry-run)。confirm:true で ASC に反映
+#   fastlane mac listing_check        -- 送る素材の置き場所・リリースノートのバージョンを確かめ、deliver の読み込みで読む (ASC に接続しない)
 #
-# メタデータの実体は releases/current/metadata/<locale>/ (共有レイアウト。説明文・キーワード等)、
-# リリースノートは releases/v$(MARKETING_VERSION)/release_notes/<locale>.txt にある。
-# releases/current/metadata が無い app は旧来どおり releases/v$(MARKETING_VERSION)/metadata/
-# を使う (release_metadata_path のコメント参照)。スクリーンショットは
-# releases/v$(MARKETING_VERSION)/screenshots/。fastlane/metadata, fastlane/screenshots は使わない。
+# App Store の掲載ページの素材は appstore-listing/ に置く (バージョンを含まない 1 か所。listing_layout? のコメント参照):
+#   appstore-listing/metadata/<locale>/       説明文・キーワード等とリリースノート (release_notes.txt)
+#   appstore-listing/screenshots/<locale>/    スクリーンショット
+#   appstore-listing/release_notes_version.txt  リリースノートがどのバージョンのものか
+# appstore-listing/ に移していない app は、前の置き場所 (releases/current/metadata と releases/v$(MARKETING_VERSION)/) を読む。
+# fastlane/metadata, fastlane/screenshots は使わない。
 #
 # 配信対象 territory（app-level、version 非依存）は fastlane/available_territories.json
-# が単一マスター（version-specific ではないため releases/v$(MARKETING_VERSION)/ には置かない）。
+# が単一マスター。
 # repo で変えるなら JSON を編集 → availability_apply で差分を見る → confirm:true で反映。
 # Web 上で変えたなら availability_pull で JSON を書き直して commit する。
 #
@@ -63,38 +65,81 @@ def current_marketing_version
   match[1]
 end
 
-# メタデータの置き場は 2 通りある。
+# App Store の掲載ページの素材の置き場は 3 通りある。上から順に、在るものを使う (混在時に古い置き場所を黙って使わない)。
 #
-# - **共有レイアウト (推奨)**: `releases/current/metadata/<locale>/` に説明文・キーワード等を
-#   1 組だけ置き、バージョンごとに変わるリリースノートだけを
-#   `releases/v<version>/release_notes/<locale>.txt` に置く。App Store Connect は説明文等について
-#   「現在の値」しか持たないので、バージョンごとに複製すると古いディレクトリを編集する事故が起きる。
+# - **appstore-listing/ (推奨)**: `appstore-listing/metadata/<locale>/` に説明文・キーワード等とリリースノート
+#   (`release_notes.txt`。deliver が metadata_path から読む標準の名前) を、`appstore-listing/screenshots/<locale>/` に
+#   スクリーンショットを置く。バージョンを含まない 1 か所だけにする。App Store Connect は説明文等について「現在の値」しか持たず、
+#   バージョンごとに置き場所を分けると、バージョンを上げるたびに名前を変える作業と、古い置き場所を編集する事故が起きる。
 #   過去に何を出したかは git のタグ・履歴で辿る
-# - **バージョンごとのレイアウト (旧来)**: `releases/v<version>/metadata/<locale>/` に
-#   リリースノートを含む全項目を置く。`releases/current/metadata` が無いときはこちらを使う
-#
-# 共有レイアウトが在ればそちらを優先する (混在時に旧来を黙って使わない)。
+# - **共有レイアウト (移行前)**: `releases/current/metadata/<locale>/` と `releases/v<version>/{release_notes,screenshots}/`
+# - **バージョンごとのレイアウト (旧来)**: `releases/v<version>/{metadata,screenshots}/` に全項目
+def listing_root
+  File.join(project_root, "appstore-listing")
+end
+
+def listing_layout?
+  Dir.exist?(File.join(listing_root, "metadata"))
+end
+
 def release_metadata_path
+  return File.join(listing_root, "metadata") if listing_layout?
+
   v = current_marketing_version
   shared = File.join(project_root, "releases", "current", "metadata")
   return shared if Dir.exist?(shared)
 
   path = File.join(project_root, "releases", "v#{v}", "metadata")
   unless Dir.exist?(path)
-    raise "Metadata directory not found: releases/current/metadata または releases/v#{v}/metadata\n" \
-          "共有レイアウトなら releases/current/metadata を、バージョンごとのレイアウトなら\n" \
-          "MARKETING_VERSION=#{v} に対応するディレクトリを用意してください\n" \
-          "(旧来レイアウトの初期化: cp -r releases/vPREV/metadata releases/v#{v}/metadata)。"
+    raise "Metadata directory not found: appstore-listing/metadata・releases/current/metadata・releases/v#{v}/metadata のどれも無い。\n" \
+          "appstore-listing/metadata/<locale>/ に説明文等とリリースノート (release_notes.txt) を置く。"
   end
   path
 end
 
-# バージョン別のリリースノート (共有レイアウトで使う)。
+# appstore-listing/ のリリースノートが、今送るバージョンのものかを確かめる。
+#
+# 置き場所にバージョンを含めないので、バージョンを上げてリリースノートを書き忘れると、前のバージョンのノートがそのまま
+# 新しいバージョンの「このバージョンの新機能」として送られる。それを止めるため、ノートを書いた人 (人・agent) が
+# appstore-listing/release_notes_version.txt に「どのバージョンのノートか」を書き、送る前に MARKETING_VERSION と比べる。
+# バージョンを上げる手順 (skill version-bump など) はこのファイルを書き換えない (ノートを書いた時に書き換える)。
+# あわせて、metadata の各 locale に空でない release_notes.txt が在ることも求める。
+def verify_listing_release_notes!
+  v = current_marketing_version
+  marker = File.join(listing_root, "release_notes_version.txt")
+  written_for = File.exist?(marker) ? File.read(marker).strip : nil
+  if written_for != v
+    problem =
+      if written_for.nil? || written_for.empty?
+        "appstore-listing/release_notes_version.txt が無いか空で、リリースノートがどのバージョン用か分からない。"
+      else
+        "appstore-listing のリリースノートはバージョン #{written_for} 用で、MARKETING_VERSION=#{v} と違う。"
+      end
+    raise "#{problem}\n" \
+          "#{v} のリリースノートを appstore-listing/metadata/<locale>/release_notes.txt に書いてから、" \
+          "appstore-listing/release_notes_version.txt を #{v} にする。"
+  end
+
+  locales = Dir.children(release_metadata_path).select { |name| File.directory?(File.join(release_metadata_path, name)) }.sort
+  raise "appstore-listing/metadata に locale のディレクトリが 1 つも無い" if locales.empty?
+
+  locales.each do |locale|
+    path = File.join(release_metadata_path, locale, "release_notes.txt")
+    next if File.exist?(path) && !File.read(path).strip.empty?
+
+    raise "appstore-listing/metadata/#{locale}/release_notes.txt が無いか空。\n" \
+          "そのまま送ると App Store Connect の「このバージョンの新機能」が前のバージョンのまま残る。"
+  end
+end
+
+# バージョン別のリリースノート (移行前の共有レイアウトで使う)。
 #
 # deliver は `options[key] ||= File.read(path)` の順で解決するため、ここで渡した値が
-# metadata_path 配下の release_notes.txt より優先される。ディレクトリが無ければ nil を返し、
-# 旧来レイアウトの metadata_path 配下 release_notes.txt がそのまま使われる。
+# metadata_path 配下の release_notes.txt より優先される。appstore-listing/ と旧来のレイアウトでは nil を返し、
+# deliver が metadata_path 配下の release_notes.txt を読む (appstore-listing/ は verify_listing_release_notes! で確かめる)。
 def release_notes_by_locale
+  return nil if listing_layout?
+
   v = current_marketing_version
   dir = File.join(project_root, "releases", "v#{v}", "release_notes")
   return nil unless Dir.exist?(dir)
@@ -116,14 +161,20 @@ end
 # (fastlane 2.238.0 の deliver/lib/deliver/upload_metadata.rb の review_attachment_file)。添付を上げた後に
 # メタデータを送り直して、添付が黙って消えた (vlc-multi-video-player issue 514。2026-11-10)。
 #
-# 添付を使う app は releases/current/review_attachment.txt に、添付するファイルのパス (project のルートからの相対) を 1 行で書く。
+# 添付を使う app は appstore-listing/review_attachment.txt (移行前は releases/current/review_attachment.txt) に、
+# 添付するファイルのパス (project のルートからの相対) を 1 行で書く。
 # 書いてあれば、メタデータを送るたびにそのファイルを添付し直す (deliver が前の添付を消してから上げる)。
 # 書いてあるファイルが無ければ止める (黙って添付を消さない)。review_attachment.txt が無い app は今までどおり添付を渡さない
 # (既にある添付は deliver が消すので、その旨を出す)。
+def review_attachment_pointer
+  listing_layout? ? File.join(listing_root, "review_attachment.txt") : File.join(project_root, "releases", "current", "review_attachment.txt")
+end
+
 def review_attachment_options
-  pointer = File.join(project_root, "releases", "current", "review_attachment.txt")
+  pointer = review_attachment_pointer
+  shown = pointer.delete_prefix("#{project_root}/")
   unless File.exist?(pointer)
-    UI.important("releases/current/review_attachment.txt が無いので、審査の添付は送らない (App Store Connect に既にある添付は deliver が消す)")
+    UI.important("#{shown} が無いので、審査の添付は送らない (App Store Connect に既にある添付は deliver が消す)")
     return {}
   end
 
@@ -131,7 +182,7 @@ def review_attachment_options
   path = File.expand_path(relative, project_root)
   if relative.empty? || !File.file?(path)
     raise "Review attachment not found: #{relative.empty? ? '(空)' : relative}\n" \
-          "releases/current/review_attachment.txt が指すファイルが無い。添付を使わないなら review_attachment.txt を消す。"
+          "#{shown} が指すファイルが無い。添付を使わないなら review_attachment.txt を消す。"
   end
   UI.message("審査の添付: #{relative}")
   { app_review_attachment_file: path }
@@ -139,6 +190,7 @@ end
 
 # metadata を送る lane が共通で渡す引数 (バージョン別ノートが在れば release_notes を、審査の添付の指定が在れば添付を足す)。
 def deliver_metadata_options
+  verify_listing_release_notes! if listing_layout?
   options = {
     app_version: current_marketing_version,
     metadata_path: release_metadata_path
@@ -151,8 +203,7 @@ end
 
 # 審査提出時の質問（IDFA / 暗号化 / コンテンツ権利）の回答。
 #
-# release_metadata_path と同じディレクトリの submission_information.json を読む
-# (共有レイアウトなら releases/current/metadata/、旧来なら releases/v<version>/metadata/)。
+# release_metadata_path と同じディレクトリの submission_information.json を読む。
 # 無ければ nil を返し、submit lane は回答を渡さない (deliver は ASC に既に入っている回答で提出する)。
 def release_submission_information
   path = File.join(release_metadata_path, "submission_information.json")
@@ -162,17 +213,20 @@ def release_submission_information
 end
 
 def release_screenshots_path
-  v = current_marketing_version
-  path = File.join(project_root, "releases", "v#{v}", "screenshots")
+  path =
+    if listing_layout?
+      File.join(listing_root, "screenshots")
+    else
+      File.join(project_root, "releases", "v#{current_marketing_version}", "screenshots")
+    end
   # release_metadata_path と対称に fail-fast にする (auto-mkdir 禁止)。
   # 過去 `Dir.mkdir(path) unless Dir.exist?(path)` で silent に空 dir を
   # 作っていたが、cwd 違い / バージョン文字列ミスマッチでも errors out せず
   # 空 screenshots dir を作り、`deliver(overwrite_screenshots: true)` が
   # それを App Store screenshots の wipe upload と解釈する潜在事故を生む。
   unless Dir.exist?(path)
-    raise "Screenshots directory not found: releases/v#{v}/screenshots\n" \
-          "MARKETING_VERSION=#{v} に対応する screenshots ディレクトリが存在しない。\n" \
-          "前バージョンから cp -r releases/vPREV/screenshots releases/v#{v}/screenshots で初期化してください。"
+    raise "Screenshots directory not found: #{path.delete_prefix("#{project_root}/")}\n" \
+          "スクリーンショットの置き場所が無い (appstore-listing/screenshots/<locale>/ に置く)。"
   end
   path
 end
@@ -392,6 +446,23 @@ platform :mac do
     answers = release_submission_information
     options[:submission_information] = answers if answers
     deliver(**options)
+  end
+
+  desc "送る素材の置き場所とリリースノートのバージョンを確かめ、deliver の読み込みで読む (ASC に接続しない・何も送らない)"
+  lane :listing_check do
+    require 'deliver'
+    options = deliver_metadata_options
+    screenshots = release_screenshots_path
+    config = FastlaneCore::Configuration.create(Deliver::Options.available_options, options.merge(skip_screenshots: true))
+    Deliver::UploadMetadata.new(config).load_from_filesystem
+    loaded = %i[name description keywords release_notes].to_h { |key| [key, (config[key] || {}).keys.sort] }
+    missing = loaded.select { |_key, locales| locales.empty? }.keys
+    UI.user_error!("deliver が読めなかった項目: #{missing.join(', ')} (metadata_path=#{options[:metadata_path]})") unless missing.empty?
+    loaded.each { |key, locales| UI.message("#{key}: #{locales.join(', ')}") }
+    shots = Dir.glob(File.join(screenshots, "*", "*.{png,jpg,jpeg}")).size
+    UI.user_error!("スクリーンショットが 0 枚 (#{screenshots})") if shots.zero?
+    UI.success("listing_check: version=#{current_marketing_version} metadata=#{options[:metadata_path].delete_prefix("#{project_root}/")} " \
+               "screenshots=#{screenshots.delete_prefix("#{project_root}/")} (#{shots} 枚)")
   end
 
   desc "ASC の現在の配信対象 territory（app-level）を取得して表示"
