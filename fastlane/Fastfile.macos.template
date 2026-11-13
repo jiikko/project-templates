@@ -104,10 +104,12 @@ end
 # appstore-listing/release_notes_version.txt に「どのバージョンのノートか」を書き、送る前に MARKETING_VERSION と比べる。
 # バージョンを上げる手順 (skill version-bump など) はこのファイルを書き換えない (ノートを書いた時に書き換える)。
 # あわせて、metadata の各 locale に空でない release_notes.txt が在ることも求める。
+# 検出しない形: 印だけを上げて一部の locale のノートを前のバージョンのまま残す、App Store Connect にだけ在る locale のノートを
+# 更新しない。印は書いた人の申告で、各 locale のノートの中身が新しいかは読まない (読むには前のバージョンのノートと比べる正本が要る)。
 def verify_listing_release_notes!
   v = current_marketing_version
   marker = File.join(listing_root, "release_notes_version.txt")
-  written_for = File.exist?(marker) ? File.read(marker).strip : nil
+  written_for = File.exist?(marker) ? File.read(marker).delete_prefix("\uFEFF").strip : nil
   if written_for != v
     problem =
       if written_for.nil? || written_for.empty?
@@ -120,7 +122,7 @@ def verify_listing_release_notes!
           "appstore-listing/release_notes_version.txt を #{v} にする。"
   end
 
-  locales = Dir.children(release_metadata_path).select { |name| File.directory?(File.join(release_metadata_path, name)) }.sort
+  locales = listing_locales
   raise "appstore-listing/metadata に locale のディレクトリが 1 つも無い" if locales.empty?
 
   locales.each do |locale|
@@ -132,13 +134,37 @@ def verify_listing_release_notes!
   end
 end
 
-# バージョン別のリリースノート (移行前の共有レイアウトで使う)。
+# appstore-listing/metadata の locale。deliver が locale として読むものだけ (review_information/ などの直下のディレクトリを数えない)
+def listing_locales
+  require 'deliver'
+  Deliver::Loader.language_folders(release_metadata_path, false).map(&:basename).sort
+end
+
+# appstore-listing/ に移した app で、移し残し (前の置き場所の審査の添付の指定・メタデータ) が残っていたら止める。
+# 残したまま送ると、新しい置き場所に無い審査の添付を deliver が消し、submit が審査の回答 (submission_information.json) を渡さない。
+def verify_no_listing_leftovers!
+  leftovers = %w[releases/current/review_attachment.txt releases/current/metadata].select { |rel| File.exist?(File.join(project_root, rel)) }
+  return if leftovers.empty?
+
+  raise "appstore-listing/ に移したのに、前の置き場所に #{leftovers.join('・')} が残っている。\n" \
+        "appstore-listing/ へ移す (review_attachment.txt は中のパスも直す)。"
+end
+
+# バージョン別のリリースノート。
 #
+# appstore-listing/ では、verify_listing_release_notes! で確かめた metadata/<locale>/release_notes.txt をここで読んで明示的に渡す。
+# deliver の引数の解決は「Fastfile の明示引数 > 環境変数 > Deliverfile > metadata_path のファイル」の順で、明示しないと
+# Deliverfile や環境変数の release_notes が、確かめたファイルより優先されて送られる。
+# そのため appstore-listing/ の app は Deliverfile に release_notes を書かない (書いても、metadata に無い locale の分は送られない)。
+#
+# 移行前の共有レイアウトでは releases/v<version>/release_notes/<locale>.txt を渡す。
 # deliver は `options[key] ||= File.read(path)` の順で解決するため、ここで渡した値が
-# metadata_path 配下の release_notes.txt より優先される。appstore-listing/ と旧来のレイアウトでは nil を返し、
-# deliver が metadata_path 配下の release_notes.txt を読む (appstore-listing/ は verify_listing_release_notes! で確かめる)。
+# metadata_path 配下の release_notes.txt より優先される。旧来のレイアウトでは nil を返し、
+# deliver が metadata_path 配下の release_notes.txt を読む。
 def release_notes_by_locale
-  return nil if listing_layout?
+  if listing_layout?
+    return listing_locales.to_h { |locale| [locale, File.read(File.join(release_metadata_path, locale, "release_notes.txt"))] }
+  end
 
   v = current_marketing_version
   dir = File.join(project_root, "releases", "v#{v}", "release_notes")
@@ -190,7 +216,10 @@ end
 
 # metadata を送る lane が共通で渡す引数 (バージョン別ノートが在れば release_notes を、審査の添付の指定が在れば添付を足す)。
 def deliver_metadata_options
-  verify_listing_release_notes! if listing_layout?
+  if listing_layout?
+    verify_no_listing_leftovers!
+    verify_listing_release_notes!
+  end
   options = {
     app_version: current_marketing_version,
     metadata_path: release_metadata_path
@@ -206,6 +235,7 @@ end
 # release_metadata_path と同じディレクトリの submission_information.json を読む。
 # 無ければ nil を返し、submit lane は回答を渡さない (deliver は ASC に既に入っている回答で提出する)。
 def release_submission_information
+  verify_no_listing_leftovers! if listing_layout?
   path = File.join(release_metadata_path, "submission_information.json")
   return nil unless File.exist?(path)
 
@@ -219,6 +249,8 @@ def release_screenshots_path
     else
       File.join(project_root, "releases", "v#{current_marketing_version}", "screenshots")
     end
+  # overwrite_screenshots (Deliverfile) で、ここに在る locale の App Store のスクショを全部消してから上げる。中身の取り違え
+  # (違う画像・枚数不足) は検出しない。置き場所にバージョンを持っていた前のレイアウトでも同じで、見るのは listing_check の枚数と人の目。
   # release_metadata_path と対称に fail-fast にする (auto-mkdir 禁止)。
   # 過去 `Dir.mkdir(path) unless Dir.exist?(path)` で silent に空 dir を
   # 作っていたが、cwd 違い / バージョン文字列ミスマッチでも errors out せず
@@ -454,12 +486,16 @@ platform :mac do
     options = deliver_metadata_options
     screenshots = release_screenshots_path
     config = FastlaneCore::Configuration.create(Deliver::Options.available_options, options.merge(skip_screenshots: true))
+    # action と同じく Deliverfile を読む (Fastfile の明示引数が優先される)。Deliverfile のパスは project のルートからなので、ルートで読む
+    Dir.chdir(project_root) { config.load_configuration_file("Deliverfile") }
     Deliver::UploadMetadata.new(config).load_from_filesystem
-    loaded = %i[name description keywords release_notes].to_h { |key| [key, (config[key] || {}).keys.sort] }
+    # Deliverfile は locale を Symbol (name(ja: ...)) で書けるので、文字列にそろえてから数える
+    loaded = %i[name description keywords release_notes].to_h { |key| [key, (config[key] || {}).keys.map(&:to_s).uniq.sort] }
     missing = loaded.select { |_key, locales| locales.empty? }.keys
     UI.user_error!("deliver が読めなかった項目: #{missing.join(', ')} (metadata_path=#{options[:metadata_path]})") unless missing.empty?
     loaded.each { |key, locales| UI.message("#{key}: #{locales.join(', ')}") }
-    shots = Dir.glob(File.join(screenshots, "*", "*.{png,jpg,jpeg}")).size
+    # deliver が送るときと同じ読み込みと検査 (大きさ・種類) を通す
+    shots = Deliver::Loader.load_app_screenshots(screenshots, false).size
     UI.user_error!("スクリーンショットが 0 枚 (#{screenshots})") if shots.zero?
     UI.success("listing_check: version=#{current_marketing_version} metadata=#{options[:metadata_path].delete_prefix("#{project_root}/")} " \
                "screenshots=#{screenshots.delete_prefix("#{project_root}/")} (#{shots} 枚)")
