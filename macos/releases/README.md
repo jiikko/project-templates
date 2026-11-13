@@ -9,15 +9,11 @@ releases/
 ├── README.md              # このファイル
 ├── v1.1.0.md              # 開発中（次回公開予定）
 ├── v1.0.3.md              # 過去のリリース履歴
-├── vX.Y.Z/                # Fastlane 導入済みの場合: そのバージョンのメタデータ実体
-│   ├── metadata/{ja,en-US}/   # App Store Connect に upload する内容
-│   └── screenshots/{ja,en-US}/ # App Store スクリーンショット
 └── ...
 ```
 
-> **Fastlane 導入済みの場合:** `releases/vX.Y.Z/{metadata,screenshots}/` がそのバージョンの App Store 公開内容そのもの。
-> Fastfile が `project.yml` の `MARKETING_VERSION` を読んで、対応するディレクトリをアップロード元に動的解決する。
-> 「マスター」と「スナップショット」を分ける運用は採らない（バージョンディレクトリ自体が履歴）。
+> **Fastlane 導入済みの場合:** App Store の素材（メタデータ・リリースノート・スクリーンショット）は
+> このディレクトリではなく `appstore-listing/` に置く（`fastlane/README.md` を参照）。
 
 ## バージョニング規則
 
@@ -77,18 +73,13 @@ make bump-marketing V=1.1.0
 make bump-marketing V=1.0.6  # project.yml の MARKETING_VERSION を更新
 ```
 
-> **Fastlane 導入済みの場合:** 説明文等は `releases/current/metadata/<locale>/` を直接編集する
-> (バージョン非依存。ASC は「現在の値」しか持たないので複製しない)。リリースノートは
-> `releases/v$(MARKETING_VERSION)/release_notes/<locale>.txt`、スクリーンショットは
-> `releases/v$(MARKETING_VERSION)/screenshots/`。Fastfile が `project.yml` の
-> `MARKETING_VERSION` を読んで動的にパスを解決する。
+> **Fastlane 導入済みの場合:** 説明文・リリースノート・スクリーンショットは `appstore-listing/` を直接編集する
+> （バージョンを含まない 1 か所。ディレクトリの作成・コピーは要らない。`fastlane/README.md` を参照）。
+> リリースノートを書いたら `appstore-listing/release_notes_version.txt` を新しいバージョンにする。
 > ```bash
-> # 新バージョン準備時
-> mkdir -p releases/v1.0.6/release_notes releases/v1.0.6/screenshots
-> cp -r releases/v1.0.5/screenshots/. releases/v1.0.6/screenshots/
 > make bump-marketing V=1.0.6
->
-> # releases/v1.0.6/{metadata,screenshots}/ を編集したら:
+> # appstore-listing/ を編集し、release_notes_version.txt を 1.0.6 にしたら:
+> make asc-listing-check    # 置き場所・印の確認（App Store Connect には接続しない）
 > make asc-metadata         # メタデータのみ変更時
 > make asc-screenshots      # スクリーンショットのみ変更時
 > make asc-upload           # 両方変更時

@@ -68,6 +68,7 @@ MyApp/
 │   ├── Sources/
 │   ├── Tests/
 │   ├── Resources/
+│   ├── appstore-listing/  # App Store の素材（fastlane/README.md）
 │   ├── releases/
 │   ├── signing/
 │   ├── appstore-reviews/
@@ -113,18 +114,18 @@ MyApp/
 | `Appfile.template` | Bundle ID・認証情報（プレースホルダー置換用） |
 | `Deliverfile.macos.template` | macOS アプリ向け deliver 設定 |
 | `Deliverfile.ios.template` | iOS アプリ向け deliver 設定 |
-| `Fastfile.macos.template` | macOS アプリ向け lane 定義（バージョンディレクトリを動的解決） |
+| `Fastfile.macos.template` | macOS アプリ向け lane 定義（`appstore-listing/` を読む） |
 | `Fastfile.ios.template` | iOS アプリ向け lane 定義（バージョンディレクトリを動的解決） |
 | `api_key.json.template` | API Key 設定サンプル |
 | `.gitignore` | fastlane 自動生成物の除外ルール |
 
-メタデータ・スクリーンショットの実体は **`releases/v$(MARKETING_VERSION)/{metadata,screenshots}/`** に置く。`fastlane/` 直下には API Key と Fastfile/Deliverfile/Appfile のみが存在する構成。
+macOS では、メタデータ・スクリーンショットの実体を **`appstore-listing/{metadata,screenshots}/`**（バージョンを含まない 1 か所）に置く。iOS のテンプレートは前の置き場所（`releases/v$(MARKETING_VERSION)/{metadata,screenshots}/`）のまま。`fastlane/` 直下には API Key と Fastfile/Deliverfile/Appfile のみが存在する構成。
 
 ### 必須ルール
 
 - **API Key 認証のみ**（Apple ID / パスワード認証は禁止）
 - `api_key.json` と `*.p8` は Git 管理する（ポータビリティ重視）
-- `releases/v$(MARKETING_VERSION)/{metadata,screenshots}/` を Git 管理する
+- `appstore-listing/{metadata,screenshots}/` を Git 管理する（macOS。iOS は `releases/v$(MARKETING_VERSION)/`）
 - lane 名は `metadata` / `screenshots` / `upload_metadata` / `upload_build` / `upload_all` / `submit` で統一
 - `bundle exec` **不使用**
 
