@@ -242,13 +242,17 @@ def release_submission_information
   JSON.parse(File.read(path)).transform_keys(&:to_sym)
 end
 
+# スクリーンショットの置き場所 (在るかは見ない)。
+def screenshots_dir
+  if listing_layout?
+    File.join(listing_root, "screenshots")
+  else
+    File.join(project_root, "releases", "v#{current_marketing_version}", "screenshots")
+  end
+end
+
 def release_screenshots_path
-  path =
-    if listing_layout?
-      File.join(listing_root, "screenshots")
-    else
-      File.join(project_root, "releases", "v#{current_marketing_version}", "screenshots")
-    end
+  path = screenshots_dir
   # overwrite_screenshots (Deliverfile) で、ここに在る locale の App Store のスクショを全部消してから上げる。中身の取り違え
   # (違う画像・枚数不足) は検出しない。置き場所にバージョンを持っていた前のレイアウトでも同じで、見るのは listing_check の枚数と人の目。
   # release_metadata_path と対称に fail-fast にする (auto-mkdir 禁止)。
@@ -484,7 +488,7 @@ platform :mac do
   lane :listing_check do
     require 'deliver'
     options = deliver_metadata_options
-    screenshots = release_screenshots_path
+    screenshots = screenshots_dir
     config = FastlaneCore::Configuration.create(Deliver::Options.available_options, options.merge(skip_screenshots: true))
     # action と同じく Deliverfile を読む (Fastfile の明示引数が優先される)。Deliverfile のパスは project のルートからなので、ルートで読む
     Dir.chdir(project_root) { config.load_configuration_file("Deliverfile") }
@@ -494,11 +498,20 @@ platform :mac do
     missing = loaded.select { |_key, locales| locales.empty? }.keys
     UI.user_error!("deliver が読めなかった項目: #{missing.join(', ')} (metadata_path=#{options[:metadata_path]})") unless missing.empty?
     loaded.each { |key, locales| UI.message("#{key}: #{locales.join(', ')}") }
-    # deliver が送るときと同じ読み込みと検査 (大きさ・種類) を通す
-    shots = Deliver::Loader.load_app_screenshots(screenshots, false).size
-    UI.user_error!("スクリーンショットが 0 枚 (#{screenshots})") if shots.zero?
+    shown = screenshots.delete_prefix("#{project_root}/")
+    if Dir.exist?(screenshots)
+      # deliver が送るときと同じ読み込みと検査 (大きさ・種類) を通す
+      shots = Deliver::Loader.load_app_screenshots(screenshots, false).size
+      UI.user_error!("スクリーンショットが 0 枚 (#{shown})") if shots.zero?
+      shots_label = "#{shown} (#{shots} 枚)"
+    else
+      # スクリーンショットを repo で持たない app もある。メタデータだけを送る lane (metadata) は使えるので止めず、
+      # スクリーンショットを送る lane (screenshots / upload_metadata / upload_all) が止まることを知らせる
+      UI.important("#{shown} が無い。screenshots / upload_metadata / upload_all の lane は止まる (metadata は送れる)")
+      shots_label = "#{shown} (無い)"
+    end
     UI.success("listing_check: version=#{current_marketing_version} metadata=#{options[:metadata_path].delete_prefix("#{project_root}/")} " \
-               "screenshots=#{screenshots.delete_prefix("#{project_root}/")} (#{shots} 枚)")
+               "screenshots=#{shots_label}")
   end
 
   desc "ASC の現在の配信対象 territory（app-level）を取得して表示"
